@@ -89,38 +89,37 @@ with st.expander("📂 데이터 업로드 및 불러오기 설정", expanded=Fa
                 st.markdown(f"✅ 저장된 **{label} 데이터** 자동 불러오기 완료")
                 break
 
+# ---------------------- 계층별 매출 출력 ----------------------
+
 if updated_df is not None:
     df_long = updated_df.melt(id_vars=['사업부', '구분', '사이트', '브랜드'], var_name='날짜', value_name='매출')
     df_long['날짜'] = pd.to_datetime(df_long['날짜'], errors='coerce')
     df_long['매출'] = pd.to_numeric(df_long['매출'], errors='coerce')
+    df_long['기간'] = df_long['날짜'].dt.to_period('M').astype(str)
 
-    st.markdown("<h5>🏗️ 계층별 매출 탐색</h5>", unsafe_allow_html=True)
+    st.markdown("<h5>📚 계층별 매출 요약 (사업부 → 구분 → 사이트 → 브랜드)</h5>", unsafe_allow_html=True)
 
-    selected_bu = st.selectbox("1️⃣ 사업부 선택", options=[""] + sorted(df_long['사업부'].unique()))
-    df_filtered = None
-    if selected_bu:
-        df_filtered = df_long[df_long['사업부'] == selected_bu]
-        selected_div = st.selectbox("2️⃣ 구분 선택", options=[""] + sorted(df_filtered['구분'].unique()))
-        if selected_div:
-            df_filtered = df_filtered[df_filtered['구분'] == selected_div]
-            selected_site = st.selectbox("3️⃣ 사이트 선택", options=[""] + sorted(df_filtered['사이트'].unique()))
-            if selected_site:
-                df_filtered = df_filtered[df_filtered['사이트'] == selected_site]
+    summary = df_long.groupby(['사업부', '구분', '사이트', '브랜드', '기간'])['매출'].sum().reset_index()
+    pivot = summary.pivot_table(index=['사업부', '구분', '사이트', '브랜드'], columns='기간', values='매출', fill_value=0).reset_index()
 
-    if df_filtered is not None:
-        view_mode = st.radio("📅 보기 방식", ["월별", "일별"], horizontal=True)
+    def format_df(df):
+        df_fmt = df.copy()
+        date_cols = df_fmt.columns[df_fmt.columns.str.match(r'\d{4}-\d{2}')]
+        df_fmt[date_cols] = df_fmt[date_cols].astype(int).applymap(lambda x: f"{x:,}")
+        return df_fmt
 
-        if view_mode == "월별":
-            df_filtered['기간'] = df_filtered['날짜'].dt.to_period('M').astype(str)
-        else:
-            df_filtered['기간'] = df_filtered['날짜'].dt.strftime("%Y-%m-%d")
+    formatted = format_df(pivot)
 
-        level = '브랜드'
-        st.markdown("### 📈 선택 항목별 매출 요약")
-        summary = df_filtered.groupby([level, '기간'])['매출'].sum().reset_index()
-        pivot = summary.pivot(index=level, columns='기간', values='매출').fillna(0).astype(int)
-        pivot_fmt = pivot.applymap(lambda x: f"{x:,}")
+    for bu in formatted['사업부'].unique():
+        st.markdown(f"### 📦 사업부: **{bu}**")
+        bu_df = formatted[formatted['사업부'] == bu]
 
-        row_count = pivot_fmt.shape[0]
-        height = min(row_count, 14) * 35 + 40
-        st.dataframe(pivot_fmt, use_container_width=True, height=height)
+        for div in bu_df['구분'].unique():
+            st.markdown(f"#### 📂 구분: {div}")
+            div_df = bu_df[bu_df['구분'] == div]
+
+            for site in div_df['사이트'].unique():
+                st.markdown(f"##### 🏬 사이트: {site}")
+                site_df = div_df[div_df['사이트'] == site].drop(columns=['사업부', '구분', '사이트'])
+                site_df = site_df.set_index('브랜드')
+                st.dataframe(site_df, use_container_width=True)
