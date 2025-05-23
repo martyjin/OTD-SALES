@@ -102,7 +102,7 @@ if updated_df is not None:
     st.dataframe(site_pivot_fmt)
 
     # 0원 브랜드 제거
-    brand_pivot = brand_pivot[brand_pivot.sum(axis=1) != 0]
+  
     
     # 선택된 사이트의 브랜드 매출
     if selected_sites:
@@ -111,5 +111,6 @@ if updated_df is not None:
             brand_df = df_long[df_long['사이트'] == site]
             brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
             brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int)
+            brand_pivot = brand_pivot[brand_pivot.sum(axis=1) != 0]
             brand_pivot_fmt = brand_pivot.applymap(lambda x: f"{x:,}")
             st.dataframe(brand_pivot_fmt)
