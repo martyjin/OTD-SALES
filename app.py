@@ -133,7 +133,7 @@ if updated_df is not None:
   
     
     # 선택된 사이트의 브랜드 매출
-    if selected_sites:
+    if selected_site:
             st.markdown(f"<h6>🏷 {selected_site} - 브랜드별 매출</h6>", unsafe_allow_html=True)
             brand_df = df_long[df_long['사이트'] == selected_site]
             brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
