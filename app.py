@@ -54,6 +54,23 @@ def save_data(df, is_monthly):
 # ---------------------- Streamlit 인터페이스 ----------------------
 
 st.title("📊 매출 분석 웹앱")
+st.markdown("""
+    <style>
+    /* 모든 스크롤바 두껍게 */
+    ::-webkit-scrollbar {
+        height: 18px;  /* 가로 스크롤바 */
+        width: 18px;   /* 세로 스크롤바 */
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #999; 
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #f0f0f0;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 uploaded_file = st.file_uploader("엑셀 업로드", type=["xlsx"])
 
 if uploaded_file is not None:
