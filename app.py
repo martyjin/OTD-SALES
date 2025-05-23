@@ -101,6 +101,9 @@ if updated_df is not None:
     st.subheader("🏬 사이트별 매출 요약")
     st.dataframe(site_pivot_fmt)
 
+    # 0원 브랜드 제거
+    brand_pivot = brand_pivot[brand_pivot.sum(axis=1) != 0]
+    
     # 선택된 사이트의 브랜드 매출
     if selected_sites:
         for site in selected_sites:
