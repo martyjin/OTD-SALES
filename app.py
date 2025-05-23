@@ -8,7 +8,6 @@ DAILY_DATA_PATH = os.path.join(DATA_FOLDER, "daily_data.csv")
 MONTHLY_DATA_PATH = os.path.join(DATA_FOLDER, "monthly_data.csv")
 os.makedirs(DATA_FOLDER, exist_ok=True)
 
-# 월별 판단
 def is_monthly_data(df):
     try:
         pd.to_datetime(df.columns[-1], format="%Y-%m")
@@ -16,12 +15,10 @@ def is_monthly_data(df):
     except:
         return False
 
-# 기존 로드
 def load_existing_data(is_monthly):
     path = MONTHLY_DATA_PATH if is_monthly else DAILY_DATA_PATH
     return pd.read_csv(path) if os.path.exists(path) else None
 
-# 업데이트된 항목만 병합
 def update_only_changed(existing_df, new_df):
     id_vars = ['사업부', '구분', '사이트', '브랜드']
     date_cols = [col for col in new_df.columns if col not in id_vars]
@@ -44,7 +41,6 @@ def update_only_changed(existing_df, new_df):
     else:
         return new_df
 
-# 저장
 def save_data(df, is_monthly):
     path = MONTHLY_DATA_PATH if is_monthly else DAILY_DATA_PATH
     df.to_csv(path, index=False)
@@ -101,6 +97,7 @@ if updated_df is not None:
     st.markdown("<h5>🏗️ 계층별 매출 탐색</h5>", unsafe_allow_html=True)
 
     selected_bu = st.selectbox("1️⃣ 사업부 선택", options=[""] + sorted(df_long['사업부'].unique()))
+    df_filtered = None
     if selected_bu:
         df_filtered = df_long[df_long['사업부'] == selected_bu]
         selected_div = st.selectbox("2️⃣ 구분 선택", options=[""] + sorted(df_filtered['구분'].unique()))
@@ -110,20 +107,20 @@ if updated_df is not None:
             if selected_site:
                 df_filtered = df_filtered[df_filtered['사이트'] == selected_site]
 
-    # 보기 방식 선택
-    view_mode = st.radio("📅 보기 방식", ["월별", "일별"], horizontal=True)
+    if df_filtered is not None:
+        view_mode = st.radio("📅 보기 방식", ["월별", "일별"], horizontal=True)
 
-    if view_mode == "월별":
-        df_filtered['기간'] = df_filtered['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_filtered['기간'] = df_filtered['날짜'].dt.strftime("%Y-%m-%d")
+        if view_mode == "월별":
+            df_filtered['기간'] = df_filtered['날짜'].dt.to_period('M').astype(str)
+        else:
+            df_filtered['기간'] = df_filtered['날짜'].dt.strftime("%Y-%m-%d")
 
-    level = '브랜드'
-    st.markdown("### 📈 선택 항목별 매출 요약")
-    summary = df_filtered.groupby([level, '기간'])['매출'].sum().reset_index()
-    pivot = summary.pivot(index=level, columns='기간', values='매출').fillna(0).astype(int)
-    pivot_fmt = pivot.applymap(lambda x: f"{x:,}")
+        level = '브랜드'
+        st.markdown("### 📈 선택 항목별 매출 요약")
+        summary = df_filtered.groupby([level, '기간'])['매출'].sum().reset_index()
+        pivot = summary.pivot(index=level, columns='기간', values='매출').fillna(0).astype(int)
+        pivot_fmt = pivot.applymap(lambda x: f"{x:,}")
 
-    row_count = pivot_fmt.shape[0]
-    height = min(row_count, 14) * 35 + 40
-    st.dataframe(pivot_fmt, use_container_width=True, height=height)
+        row_count = pivot_fmt.shape[0]
+        height = min(row_count, 14) * 35 + 40
+        st.dataframe(pivot_fmt, use_container_width=True, height=height)
