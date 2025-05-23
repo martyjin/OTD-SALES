@@ -104,7 +104,7 @@ if updated_df is not None:
     st.subheader("🏬 사이트별 매출 요약")
 
     row_count = site_pivot_fmt.shape[0]
-    max_rows = 16
+    max_rows = 14
     row_height = 35
     height = min(row_count, max_rows) * row_height + 40
 
@@ -125,7 +125,7 @@ if updated_df is not None:
             brand_pivot = brand_pivot[brand_pivot.sum(axis=1) != 0]
             brand_pivot_fmt = brand_pivot.applymap(lambda x: f"{x:,}")
     row_count = brand_pivot_fmt.shape[0]
-    max_rows = 16
+    max_rows = 14
     row_height = 35
     height = min(row_count, max_rows) * row_height + 40
 
