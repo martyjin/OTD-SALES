@@ -102,12 +102,14 @@ if updated_df is not None:
     site_pivot = site_summary.pivot(index='사이트', columns='기간', values='매출').fillna(0).astype(int)
     site_pivot_fmt = site_pivot.applymap(lambda x: f"{x:,}")
     st.subheader("🏬 사이트별 매출 요약")
-    
-    row_count = site_pivot_fmt.shape[0]
-    height = min(row_count * 35 + 40, 1000)
 
-    st.subheader("🏬 사이트별 매출 요약")
+    row_count = site_pivot_fmt.shape[0]
+    max_rows = 16
+    row_height = 35
+    height = min(row_count, max_rows) * row_height + 40
+
     st.dataframe(site_pivot_fmt, use_container_width=True, height=height)
+
 
 
     # 0원 브랜드 제거
@@ -122,9 +124,11 @@ if updated_df is not None:
             brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int)
             brand_pivot = brand_pivot[brand_pivot.sum(axis=1) != 0]
             brand_pivot_fmt = brand_pivot.applymap(lambda x: f"{x:,}")
-            row_count = brand_pivot_fmt.shape[0]
+    row_count = brand_pivot_fmt.shape[0]
+    max_rows = 16
+    row_height = 35
+    height = min(row_count, max_rows) * row_height + 40
 
-            height = min(row_count * 35 + 40, 1000)
+    st.dataframe(brand_pivot_fmt, use_container_width=True, height=height)
 
-            st.dataframe(brand_pivot_fmt, use_container_width=True, height=height)
 
