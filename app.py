@@ -96,12 +96,9 @@ if updated_df is not None:
 
     for bu in site_pivot['사업부'].unique():
         st.markdown(f"### 🏢 사업부: {bu}")
-        bu_df = site_pivot[site_pivot['사업부'] == bu]
-        for div in bu_df['구분'].unique():
-            st.markdown(f"#### 📂 구분: {div}")
-            div_df = bu_df[bu_df['구분'] == div].drop(columns=['사업부', '구분'])
-            div_df = div_df.set_index('사이트')
-            st.dataframe(div_df, use_container_width=True)
+        bu_df = site_pivot[site_pivot['사업부'] == bu].drop(columns=['사업부'])
+        bu_df = bu_df.set_index(['구분', '사이트'])
+        st.dataframe(bu_df, use_container_width=True)
 
     st.markdown("<h4>📌 3. 브랜드별 상세 매출 (선택 기반)</h4>", unsafe_allow_html=True)
     selected_bu = st.selectbox("1️⃣ 사업부 선택", df_long['사업부'].unique())
