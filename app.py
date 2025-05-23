@@ -58,8 +58,8 @@ st.markdown("""
     <style>
     /* 모든 스크롤바 두껍게 */
     ::-webkit-scrollbar {
-        height: 18px;  /* 가로 스크롤바 */
-        width: 18px;   /* 세로 스크롤바 */
+        height: 5px;  /* 가로 스크롤바 */
+        width: 5px;   /* 세로 스크롤바 */
     }
     ::-webkit-scrollbar-thumb {
         background: #999; 
