@@ -68,38 +68,37 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-uploaded_file = st.file_uploader("엑셀 업로드", type=["xlsx"])
+updated_df = None
+with st.expander("📂 데이터 업로드 및 불러오기 설정", expanded=False):
+    uploaded_file = st.file_uploader("엑셀 업로드", type=["xlsx"])
 
-if uploaded_file is not None:
-    df = pd.read_excel(uploaded_file)
-    if '사이트' in df.columns:
-        df['사이트'].fillna(method='ffill', inplace=True)
-    if not {'사이트', '브랜드'}.issubset(df.columns):
-        st.error("❌ '사이트', '브랜드' 컬럼이 필요합니다.")
+    if uploaded_file is not None:
+        df = pd.read_excel(uploaded_file)
+        if '사이트' in df.columns:
+            df['사이트'].fillna(method='ffill', inplace=True)
+        if not {'사이트', '브랜드'}.issubset(df.columns):
+            st.error("❌ '사이트', '브랜드' 컬럼이 필요합니다.")
+        else:
+            is_monthly = is_monthly_data(df)
+            existing_df = load_existing_data(is_monthly)
+            updated_df = update_only_changed(existing_df, df)
+            save_data(updated_df, is_monthly)
+            st.success("✅ 데이터 반영 완료")
+
     else:
-        is_monthly = is_monthly_data(df)
-        existing_df = load_existing_data(is_monthly)
-        updated_df = update_only_changed(existing_df, df)
-        save_data(updated_df, is_monthly)
-        st.success("✅ 데이터 반영 완료")
-
-else:
-    updated_df = None
-    for label, path in [("일자별", DAILY_DATA_PATH), ("월별", MONTHLY_DATA_PATH)]:
-        if os.path.exists(path):
-            updated_df = pd.read_csv(path)
-            st.markdown(f"✅ 저장된 **{label} 데이터** 자동 불러오기 완료")
-            break
+        for label, path in [("일자별", DAILY_DATA_PATH), ("월별", MONTHLY_DATA_PATH)]:
+            if os.path.exists(path):
+                updated_df = pd.read_csv(path)
+                st.markdown(f"✅ 저장된 **{label} 데이터** 자동 불러오기 완료")
+                break
 
 if updated_df is not None:
     site_list = updated_df['사이트'].unique().tolist()
 
-    # melt
     df_long = updated_df.melt(id_vars=['사이트', '브랜드'], var_name='날짜', value_name='매출')
     df_long['날짜'] = pd.to_datetime(df_long['날짜'], errors='coerce')
     df_long['매출'] = pd.to_numeric(df_long['매출'], errors='coerce')
 
-    # 사이트별 매출 요약
     st.markdown("<h5>🏬 사이트별 매출 요약</h5>", unsafe_allow_html=True)
     view_mode_site = st.radio("📅 보기 방식 (사이트별)", ["월별", "일별"], horizontal=True)
 
@@ -118,7 +117,6 @@ if updated_df is not None:
     height = min(row_count, max_rows) * row_height + 40
     st.dataframe(site_pivot_fmt, use_container_width=True, height=height)
 
-    # 사이트 선택 후 브랜드별 보기
     selected_site = st.selectbox("🔍 브랜드별 매출을 보고 싶은 사이트를 선택하세요:", options=[""] + site_list)
 
     if selected_site:
