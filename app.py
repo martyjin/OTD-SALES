@@ -60,7 +60,24 @@ if uploaded_file is not None:
         st.write("📄 업로드된 데이터 미리보기:")
         st.dataframe(df.head())
 
-        # 업데이트 버튼
+        # 📊 데이터 요약 출력
+        st.subheader("📊 데이터 요약")
+        total_sites = df['사이트'].nunique()
+        total_brands = df['브랜드'].nunique()
+        date_cols = [col for col in df.columns if str(col).startswith("202")]
+        total_days = len(date_cols)
+        total_sales = df[date_cols].apply(pd.to_numeric, errors='coerce').sum().sum()
+        avg_daily_sales = total_sales / total_days if total_days else 0
+        avg_sales_per_brand = total_sales / total_brands if total_brands else 0
+
+        st.markdown(f"- 전체 **사이트 수**: {total_sites}개")
+        st.markdown(f"- 전체 **브랜드 수**: {total_brands}개")
+        st.markdown(f"- 포함된 **일자 수**: {total_days}일")
+        st.markdown(f"- **총 매출 합계**: {int(total_sales):,}원")
+        st.markdown(f"- **일평균 매출**: {int(avg_daily_sales):,}원")
+        st.markdown(f"- **브랜드당 평균 매출**: {int(avg_sales_per_brand):,}원")
+
+        # 🔘 업데이트 버튼
         if st.button("데이터 저장 및 갱신"):
             updated_df = update_data(df, is_monthly)
             st.success("📝 데이터가 성공적으로 저장되었습니다.")
