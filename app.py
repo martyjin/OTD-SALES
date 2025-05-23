@@ -51,7 +51,7 @@ def save_data(df, is_monthly):
 
 # ---------------------- Streamlit 인터페이스 ----------------------
 
-st.title("📊 OTD Sales")
+st.title("📊 매출 분석 웹앱")
 st.markdown("""
     <style>
     ::-webkit-scrollbar {
@@ -92,40 +92,49 @@ else:
             break
 
 if updated_df is not None:
-    view_mode = st.radio("보기 모드 선택", ["📆 월별 매출", "📅 일별 매출"])
     site_list = updated_df['사이트'].unique().tolist()
 
-    date_cols = [col for col in updated_df.columns if col not in ['사이트', '브랜드']]
+    # melt
     df_long = updated_df.melt(id_vars=['사이트', '브랜드'], var_name='날짜', value_name='매출')
     df_long['날짜'] = pd.to_datetime(df_long['날짜'], errors='coerce')
     df_long['매출'] = pd.to_numeric(df_long['매출'], errors='coerce')
 
-    if view_mode == "📆 월별 매출":
-        df_long['기간'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간'] = df_long['날짜'].dt.strftime("%Y-%m-%d")
+    # 사이트별 매출 요약
+    st.markdown("<h5>🏬 사이트별 매출 요약</h5>", unsafe_allow_html=True)
+    view_mode_site = st.radio("📅 보기 방식 (사이트별)", ["월별", "일별"], horizontal=True)
 
-    site_summary = df_long.groupby(['사이트', '기간'])['매출'].sum().reset_index()
-    site_pivot = site_summary.pivot(index='사이트', columns='기간', values='매출').fillna(0).astype(int)
+    if view_mode_site == "월별":
+        df_long['사이트_기간'] = df_long['날짜'].dt.to_period('M').astype(str)
+    else:
+        df_long['사이트_기간'] = df_long['날짜'].dt.strftime("%Y-%m-%d")
+
+    site_summary = df_long.groupby(['사이트', '사이트_기간'])['매출'].sum().reset_index()
+    site_pivot = site_summary.pivot(index='사이트', columns='사이트_기간', values='매출').fillna(0).astype(int)
     site_pivot_fmt = site_pivot.applymap(lambda x: f"{x:,}")
 
-    st.markdown("<h5>🏬 사이트별 매출 요약</h5>", unsafe_allow_html=True)
     row_count = site_pivot_fmt.shape[0]
     max_rows = 14
     row_height = 35
     height = min(row_count, max_rows) * row_height + 40
     st.dataframe(site_pivot_fmt, use_container_width=True, height=height)
 
-    # 사이트 선택 박스: 아래로 이동 & 단일 선택 & 기본 없음
+    # 사이트 선택 후 브랜드별 보기
     selected_site = st.selectbox("🔍 브랜드별 매출을 보고 싶은 사이트를 선택하세요:", options=[""] + site_list)
 
     if selected_site:
+        view_mode_brand = st.radio("📅 보기 방식 (브랜드별)", ["월별", "일별"], horizontal=True)
+        if view_mode_brand == "월별":
+            df_long['브랜드_기간'] = df_long['날짜'].dt.to_period('M').astype(str)
+        else:
+            df_long['브랜드_기간'] = df_long['날짜'].dt.strftime("%Y-%m-%d")
+
         st.markdown(f"<h6>🏷 {selected_site} - 브랜드별 매출</h6>", unsafe_allow_html=True)
         brand_df = df_long[df_long['사이트'] == selected_site]
-        brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
-        brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int)
+        brand_summary = brand_df.groupby(['브랜드', '브랜드_기간'])['매출'].sum().reset_index()
+        brand_pivot = brand_summary.pivot(index='브랜드', columns='브랜드_기간', values='매출').fillna(0).astype(int)
         brand_pivot = brand_pivot[brand_pivot.sum(axis=1) != 0]
         brand_pivot_fmt = brand_pivot.applymap(lambda x: f"{x:,}")
+
         row_count = brand_pivot_fmt.shape[0]
         height = min(row_count, max_rows) * row_height + 40
         st.dataframe(brand_pivot_fmt, use_container_width=True, height=height)
