@@ -46,6 +46,10 @@ uploaded_file = st.file_uploader("엑셀 파일 업로드", type=["xlsx"])
 if uploaded_file is not None:
     df = pd.read_excel(uploaded_file)
 
+    # 🔧 병합 셀 대응: 사이트 값이 비어 있으면 위에서 채워넣기
+    if '사이트' in df.columns:
+        df['사이트'].fillna(method='ffill', inplace=True)
+
     # 기본 컬럼 확인
     if not {'사이트', '브랜드'}.issubset(df.columns):
         st.error("❌ '사이트'와 '브랜드' 컬럼이 존재해야 합니다.")
@@ -62,5 +66,3 @@ if uploaded_file is not None:
             st.success("📝 데이터가 성공적으로 저장되었습니다.")
             st.write("📁 현재 저장된 데이터:")
             st.dataframe(updated_df)
-
-# 향후: 예측 모델 및 시각화 추가 예정
