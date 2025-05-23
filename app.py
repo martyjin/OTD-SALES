@@ -100,7 +100,6 @@ else:
 if updated_df is not None:
     view_mode = st.radio("보기 모드 선택", ["📆 월별 매출", "📅 일별 매출"])
     site_list = updated_df['사이트'].unique().tolist()
-    selected_sites = st.multiselect("사이트 선택", options=site_list, default=site_list[:1])
 
     # 날짜 컬럼 분리
     date_cols = [col for col in updated_df.columns if col not in ['사이트', '브랜드']]
@@ -127,16 +126,16 @@ if updated_df is not None:
 
     st.dataframe(site_pivot_fmt, use_container_width=True, height=height)
 
-
+    # 🔽 선택박스: 브랜드 매출용 (한 사이트만 선택 가능, 기본 None)
+    selected_site = st.selectbox("🔍 브랜드별 매출을 보고 싶은 사이트를 선택하세요:", options=[""] + site_list)
 
     # 0원 브랜드 제거
   
     
     # 선택된 사이트의 브랜드 매출
     if selected_sites:
-        for site in selected_sites:
-            st.markdown(f"<h6>🏷 {site} - 브랜드별 매출</h6>", unsafe_allow_html=True)
-            brand_df = df_long[df_long['사이트'] == site]
+            st.markdown(f"<h6>🏷 {selected_site} - 브랜드별 매출</h6>", unsafe_allow_html=True)
+            brand_df = df_long[df_long['사이트'] == selected_site]
             brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
             brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int)
             brand_pivot = brand_pivot[brand_pivot.sum(axis=1) != 0]
