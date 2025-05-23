@@ -118,7 +118,7 @@ if updated_df is not None:
     site_summary = df_long.groupby(['사이트', '기간'])['매출'].sum().reset_index()
     site_pivot = site_summary.pivot(index='사이트', columns='기간', values='매출').fillna(0).astype(int)
     site_pivot_fmt = site_pivot.applymap(lambda x: f"{x:,}")
-    st.subheader("🏬 사이트별 매출 요약")
+    st.markdown("<h5>🏬 사이트별 매출 요약</h5>", unsafe_allow_html=True)
 
     row_count = site_pivot_fmt.shape[0]
     max_rows = 14
@@ -135,7 +135,7 @@ if updated_df is not None:
     # 선택된 사이트의 브랜드 매출
     if selected_sites:
         for site in selected_sites:
-            st.markdown(f"### 🏷 {site} - 브랜드별 매출")
+            st.markdown(f"<h6>🏷 {site} - 브랜드별 매출</h6>", unsafe_allow_html=True)
             brand_df = df_long[df_long['사이트'] == site]
             brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
             brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int)
