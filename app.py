@@ -38,6 +38,9 @@ def update_only_changed(existing_df, new_df):
             unchanged[['사이트', '브랜드', '날짜', '매출_old']].rename(columns={'매출_old': '매출'}),
             changed[['사이트', '브랜드', '날짜', '매출_new']].rename(columns={'매출_new': '매출'})
         ])
+        # 중복된 (사이트, 브랜드, 날짜) 조합이 있다면 합산
+        combined = combined.groupby(['사이트', '브랜드', '날짜'], as_index=False)['매출'].sum()
+
         final_df = combined.pivot(index=['사이트', '브랜드'], columns='날짜', values='매출').reset_index()
         return final_df.fillna(0)
     else:
