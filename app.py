@@ -105,24 +105,10 @@ if updated_df is not None:
     business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary], ignore_index=True)
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).reset_index()
 
-    styled_pivot1 = pivot1.style.apply(
-    lambda x: ['background-color: #ffecec' if x.name == 0 else '' for _ in x], axis=1
-)
-def safe_int_format(x):
-    try:
-        return f"{int(x):,}"
-    except:
-        return ""
-
-def format_int(x):
-    try:
-        return f"{int(x):,}"
-    except:
-        return ""
-
-for col in pivot1.columns[1:]:
-    styled_pivot1 = styled_pivot1.format({col: format_int})
-st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
+    pivot1_fmt = pivot1.copy()
+for col in pivot1_fmt.columns[1:]:
+    pivot1_fmt[col] = pivot1_fmt[col].apply(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
+st.dataframe(pivot1_fmt, use_container_width=True, hide_index=True, height=350)
 
 st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
 site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
