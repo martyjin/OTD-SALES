@@ -114,7 +114,7 @@ if updated_df is not None:
         business_summary.rename(columns={'기간1': '기간'})
     ], ignore_index=True)
     business_summary['row_order'] = business_summary['사업부'].apply(lambda x: -1 if x == '합계' else 0)
-    business_summary = business_summary.sort_values(by='row_order').drop(columns='row_order')
+    business_summary = business_summary.sort_values(by='row_order', ascending=False).drop(columns='row_order')
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).reset_index()
 
     pivot1_fmt = pivot1.copy()
@@ -127,4 +127,4 @@ if updated_df is not None:
     styled_pivot1 = pivot1_fmt.style.apply(highlight_total, axis=1)
     st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
 
-    # (2, 3번 표 생략된 부분 그대로 유지)
+    # (2, 3번 표 생략된 부분은 별도 복구 필요)
