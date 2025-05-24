@@ -1,120 +1,127 @@
-import streamlit as st
 import pandas as pd
-import numpy as np
+import streamlit as st
+import os
+from prophet import Prophet
+import matplotlib.pyplot as plt
 
-# --------- 데이터 업로드 ---------
-uploaded_file = st.file_uploader("📂 데이터 업로드 및 불러오기 설정", type=['xlsx'])
-if uploaded_file is not None:
-    df = pd.read_excel(uploaded_file)
+st.set_page_config(page_title="OTD SALES", layout="wide")
+st.title("\ud83d\udcca OTD \ub9e4\uc8fc \ubc30\uce58 \uc2dc\uc2a4\ud15c")
 
-    date_cols = df.columns[4:]
-    df_long = df.melt(id_vars=['사업부', '구분', '사이트', '브랜드'], value_vars=date_cols,
-                      var_name='날짜', value_name='매출')
-    df_long['날짜'] = pd.to_datetime(df_long['날짜'])
+DATA_PATH = "saved_data.csv"
+FORMAT_TAG = "FORMAT_001"
 
-    def format_int(x):
-        return f"{int(x):,}" if pd.notnull(x) else ""
+st.sidebar.header("\uc5d8\ucf69 \uc5c5\ub85c\ub4dc \ubc0f \ubcf4\uae30 \uc635\uc158")
+uploaded_file = st.sidebar.file_uploader("\uc5d8\ucf69 \ud30c\uc77c \uc5c5\ub85c\ub4dc", type=["xlsx"])
+date_view = st.sidebar.radio("\ubcf4\uae30 \ub2e8\uc704", ["\uc6d4\ubcc4", "\uc77c\ubcc4"], horizontal=True)
 
-    # --------- 1. 사업부별 매출 합계 ---------
-    st.markdown("<h4>📅 보기 방식 (사업부별 합계)</h4>", unsafe_allow_html=True)
-    view_mode1 = st.radio("", ["월별", "일별"], horizontal=True, key="vm1")
-    if view_mode1 == "월별":
-        df_long['기간1'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간1'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
+def format_number(x):
+    try:
+        return f"{int(x):,}"
+    except:
+        return x
 
-    st.markdown("<h3>📌 1. 사업부별 매출 합계</h3>", unsafe_allow_html=True)
-    business_summary = df_long.groupby(['사업부', '기간1'])['매출'].sum().reset_index()
-    overall_total = business_summary.groupby('기간1')['매출'].sum().reset_index()
-    overall_total['사업부'] = '합계'
-    business_summary = pd.concat([overall_total[['사업부', '기간1', '매출']], business_summary], ignore_index=True)
-    business_summary['row_order'] = business_summary['사업부'].apply(lambda x: -1 if x == '합계' else 0)
-    business_summary = business_summary.sort_values(by='row_order', ascending=False).drop(columns='row_order')
+def format_table_with_summary(df, group_label):
+    df = df.copy()
+    df.loc["\ud569\uacc4"] = df.sum(numeric_only=True)
+    df = df.astype(int).applymap(format_number)
+    df = df.loc[["\ud569\uacc4"] + [i for i in df.index if i != "\ud569\uacc4"]]
+    df.index.name = group_label
+    return df
 
-    pivot1 = business_summary.pivot(index='사업부', columns='기간1', values='매출').fillna(0).reset_index()
-    pivot1_fmt = pivot1.copy()
-    for col in pivot1_fmt.columns[1:]:
-        pivot1_fmt[col] = pivot1_fmt[col].apply(format_int)
-
-    def highlight_total(row):
-        return ['background-color: #ffecec' if row['사업부'] == '합계' else '' for _ in row]
-
-    styled_pivot1 = pivot1_fmt.style.apply(highlight_total, axis=1)
-    st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
-
-    # --------- 2. 사업부 → 구분 → 사이트 매출 요약 ---------
-    st.markdown("<h4>📅 보기 방식 (사이트 요약)</h4>", unsafe_allow_html=True)
-    view_mode2 = st.radio("", ["월별", "일별"], horizontal=True, key="vm2")
-    if view_mode2 == "월별":
-        df_long['기간2'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
-
-    st.markdown("<h3>📌 2. 사업부 → 구분 → 사이트 매출 요약</h3>", unsafe_allow_html=True)
-    site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간2'])['매출'].sum().reset_index()
-
-    all_site_tables = []
-    for bu in site_summary['사업부'].unique():
-        st.markdown(f"<h4>🏢 사업부: {bu}</h4>", unsafe_allow_html=True)
-        bu_df = site_summary[site_summary['사업부'] == bu]
-
-        all_rows = []
-        for div in bu_df['구분'].unique():
-            div_df = bu_df[bu_df['구분'] == div]
-            subtotal = div_df.groupby(['기간2'])['매출'].sum().reset_index()
-            subtotal['사이트'] = '합계'
-            subtotal['구분'] = div
-            combined = pd.concat([subtotal[['구분', '사이트', '기간2', '매출']], div_df[['구분', '사이트', '기간2', '매출']]])
-            combined['row_order'] = combined['사이트'].apply(lambda x: -1 if x == '합계' else 0)
-            combined = combined.sort_values(by='row_order', ascending=False).drop(columns='row_order')
-            all_rows.append(combined)
-
-        bu_table = pd.concat(all_rows, ignore_index=True)
-        pivot2 = bu_table.pivot(index=['구분', '사이트'], columns='기간2', values='매출').fillna(0).reset_index()
-        pivot2_fmt = pivot2.copy()
-        for col in pivot2_fmt.columns[2:]:
-            pivot2_fmt[col] = pivot2_fmt[col].apply(format_int)
-
-        def highlight_site_total(row):
-            return ['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row]
-
-        styled_pivot2 = pivot2_fmt.style.apply(highlight_site_total, axis=1)
-        st.dataframe(styled_pivot2, use_container_width=True, hide_index=True, height=400)
-
-    # --------- 3. 선택한 사이트 내 브랜드 매출 ---------
-    st.markdown("<h4>📅 보기 방식 (브랜드 매출)</h4>", unsafe_allow_html=True)
-    view_mode3 = st.radio("", ["월별", "일별"], horizontal=True, key="vm3")
-    if view_mode3 == "월별":
-        df_long['기간3'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간3'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
-
-    st.markdown("<h3>📌 3. 선택한 사이트 내 브랜드 매출</h3>", unsafe_allow_html=True)
-
-    selected_bu = st.selectbox("사업부 선택", df_long['사업부'].unique())
-    filtered_df = df_long[df_long['사업부'] == selected_bu]
-    selected_div = st.selectbox("구분 선택", filtered_df['구분'].unique())
-    filtered_df = filtered_df[filtered_df['구분'] == selected_div]
-    selected_site = st.selectbox("사이트 선택", filtered_df['사이트'].unique())
-    brand_df = filtered_df[filtered_df['사이트'] == selected_site]
-
-    brand_summary = brand_df.groupby(['브랜드', '기간3'])['매출'].sum().reset_index()
-    total_brand = brand_summary.groupby('기간3')['매출'].sum().reset_index()
-    total_brand['브랜드'] = '합계'
-
-    brand_summary = pd.concat([total_brand[['브랜드', '기간3', '매출']], brand_summary], ignore_index=True)
-    brand_summary['row_order'] = brand_summary['브랜드'].apply(lambda x: -1 if x == '합계' else 0)
-    brand_summary = brand_summary.sort_values(by='row_order', ascending=False).drop(columns='row_order')
-
-    pivot3 = brand_summary.pivot(index='브랜드', columns='기간3', values='매출').fillna(0).reset_index()
-    pivot3_fmt = pivot3.copy()
-    for col in pivot3_fmt.columns[1:]:
-        pivot3_fmt[col] = pivot3_fmt[col].apply(format_int)
-
-    def highlight_brand_total(row):
-        return ['background-color: #ffecec' if row['브랜드'] == '합계' else '' for _ in row]
-
-    styled_pivot3 = pivot3_fmt.style.apply(highlight_brand_total, axis=1)
-    st.dataframe(styled_pivot3, use_container_width=True, hide_index=True, height=400)
+if os.path.exists(DATA_PATH):
+    saved_df = pd.read_csv(DATA_PATH, parse_dates=["\ub0a0\uc9dc"])
 else:
-    st.warning("먼저 엑셀 파일을 업로드해주세요.")
+    saved_df = pd.DataFrame(columns=["\ud3ec\ub9f7", "\uc0ac\uc5c5\ubd80", "\uc720\ud615", "\uc0ac\uc774\ud2b8", "\ube0c\ub79c\ub4dc", "\ub0a0\uc9dc", "\ub9e4\uc8fc"])
+
+if uploaded_file:
+    df = pd.read_excel(uploaded_file)
+    date_cols = df.columns[4:]
+    df_melted = df.melt(id_vars=df.columns[:4], value_vars=date_cols,
+                        var_name="\ub0a0\uc9dc", value_name="\ub9e4\uc8fc")
+
+    df_melted["\ub0a0\uc9dc"] = pd.to_datetime(df_melted["\ub0a0\uc9dc"])
+    df_melted["\ub9e4\uc8fc"] = pd.to_numeric(df_melted["\ub9e4\uc8fc"], errors="coerce").fillna(0)
+    df_melted["\ud3ec\ub9f7"] = FORMAT_TAG
+
+    merged = pd.merge(saved_df, df_melted,
+                      on=["\ud3ec\ub9f7", "\uc0ac\uc5c5\ubd80", "\uc720\ud615", "\uc0ac\uc774\ud2b8", "\ube0c\ub79c\ub4dc", "\ub0a0\uc9dc"],
+                      how="outer", suffixes=("_old", ""))
+    merged["\ub9e4\uc8fc"] = merged["\ub9e4\uc8fc"].combine_first(merged["\ub9e4\uc8fc_old"])
+    updated_df = merged[["\ud3ec\ub9f7", "\uc0ac\uc5c5\ubd80", "\uc720\ud615", "\uc0ac\uc774\ud2b8", "\ube0c\ub79c\ub4dc", "\ub0a0\uc9dc", "\ub9e4\uc8fc"]]
+    updated_df.to_csv(DATA_PATH, index=False)
+
+    st.success("\u2705 \ub370\uc774\ud130\uac00 \uc800\uc7a5\ub418\uc5b4\uc788\uace0, \uae30\uc874 \ub370\uc774\ud130\uc640 \ube44\uad50\ud574 \uc5c5\ub370\uc774\ud2b8\ub418\uc5c8\uc2b5\ub2c8\ub2e4.")
+else:
+    updated_df = saved_df.copy()
+    st.info("\u2139\ufe0f \uc800\uc7a5\ub41c \ub370\uc774\ud130\ub97c \ubd88\ub7ec\uc640\uc694. \uc0c8 \ud30c\uc77c\uc744 \uc5c5\ub85c\ub4dc\ud558\uba74 \uc790\ub3d9\uc73c\ub85c \ubc18\uc601\ub429\ub2c8\ub2e4.")
+
+if not updated_df.empty:
+    updated_df["\ub0a0\uc9dc"] = pd.to_datetime(updated_df["\ub0a0\uc9dc"])
+    updated_df["\uae30\uc900\uc77c"] = (
+        updated_df["\ub0a0\uc9dc"].dt.to_period("M").astype(str)
+        if date_view == "\uc6d4\ubcc4"
+        else updated_df["\ub0a0\uc9dc"].dt.strftime("%Y-%m-%d")
+    )
+
+    st.markdown("### 1. \uc0ac\uc5c5\ubd80\ubcc4 \ub9e4\uc8fc \uc694\uc57d")
+    df_bu = updated_df.groupby(["\uc0ac\uc5c5\ubd80", "\uae30\uc900\uc77c"])["\ub9e4\uc8fc"].sum().unstack(fill_value=0)
+    df_bu_formatted = format_table_with_summary(df_bu, "\uc0ac\uc5c5\ubd80")
+    st.dataframe(df_bu_formatted.style.set_properties(
+        subset=pd.IndexSlice[["\ud569\uacc4"], :],
+        **{'background-color': '#fde2e2'}
+    ), height=600)
+
+    st.markdown("---")
+    st.markdown("### 2. \uc0ac\uc774\ud2b8\ubcc4 \ub9e4\uc8fc (개칭: \uc0ac\uc5c5\ubd80 / \uc720\ud615)")
+    bu_list = updated_df["\uc0ac\uc5c5\ubd80"].unique().tolist()
+    selected_bu = st.selectbox("\uc0ac\uc5c5\ubd80 \uc120\ud0dd", bu_list)
+    df_filtered = updated_df[updated_df["\uc0ac\uc5c5\ubd80"] == selected_bu]
+    df_site = df_filtered.groupby(["\uc720\ud615", "\uc0ac\uc774\ud2b8", "\uae30\uc900\uc77c"])["\ub9e4\uc8fc"].sum().unstack(fill_value=0)
+    df_site_formatted = format_table_with_summary(df_site, "\uc720\ud615/\uc0ac\uc774\ud2b8")
+    st.dataframe(df_site_formatted.style.set_properties(
+        subset=pd.IndexSlice[["\ud569\uacc4"], :],
+        **{'background-color': '#fde2e2'}
+    ), height=600)
+
+    st.markdown("---")
+    st.markdown("### 3. \ube0c\ub79c\ub4dc\ubcc4 \ub9e4\uc8fc")
+    unit = st.selectbox("\uc120\ud0dd: \uc0ac\uc5c5\ubd80 / \uc720\ud615 / \uc0ac\uc774\ud2b8", ["\uc0ac\uc5c5\ubd80", "\uc720\ud615", "\uc0ac\uc774\ud2b8"])
+    unit_list = updated_df[unit].unique().tolist()
+    selected_unit = st.selectbox(f"{unit} \uc120\ud0dd", unit_list)
+    df_filtered_brand = updated_df[updated_df[unit] == selected_unit]
+    df_brand = df_filtered_brand.groupby(["\uc0ac\uc774\ud2b8", "\ube0c\ub79c\ub4dc", "\uae30\uc900\uc77c"])["\ub9e4\uc8fc"].sum().unstack(fill_value=0)
+    df_brand_formatted = format_table_with_summary(df_brand, "\uc0ac\uc774\ud2b8/\ube0c\ub79c\ub4dc")
+    st.dataframe(df_brand_formatted.style.set_properties(
+        subset=pd.IndexSlice[["\ud569\uacc4"], :],
+        **{'background-color': '#fde2e2'}
+    ), height=600)
+
+    # ---- 예측 기능 ----
+    st.markdown("---")
+    st.markdown("### 4. \uc6d4\ubcc4 \ub9e4\uc8fc \uc608\ucc28")
+
+    df_month = updated_df.copy()
+    df_month["\uc6d4"] = df_month["\ub0a0\uc9dc"].dt.to_period("M").astype(str)
+    monthly_sales = df_month.groupby("\uc6d4")["\ub9e4\uc8fc"].sum().reset_index()
+    monthly_sales["ds"] = pd.to_datetime(monthly_sales["\uc6d4"] + "-01")
+    monthly_sales = monthly_sales.rename(columns={"\ub9e4\uc8fc": "y"})[["ds", "y"]]
+
+    model = Prophet()
+    model.fit(monthly_sales)
+    future = model.make_future_dataframe(periods=2, freq="MS")
+    forecast = model.predict(future)
+
+    forecast_result = forecast[["ds", "yhat"]].tail(2)
+    forecast_result["\uc608\ucc28\uc6d4"] = forecast_result["ds"].dt.to_period("M").astype(str)
+    forecast_result["\uc608\uc0c1\ub9e4\uc8fc"] = forecast_result["yhat"].round().astype(int).apply(lambda x: f"{x:,}")
+    forecast_result = forecast_result[["\uc608\ucc28\uc6d4", "\uc608\uc0c1\ub9e4\uc8fc"]]
+    st.dataframe(forecast_result)
+
+    fig, ax = plt.subplots(figsize=(10, 4))
+    model.plot(forecast, ax=ax)
+    ax.set_title("\ud83d\udcc8 \uc6d4\ubcc4 \ub9e4\uc8fc \ucd94\uc774 \ubc0f \uc608\ucc28")
+    ax.set_xlabel("\uc6d4")
+    ax.set_ylabel("\ub9e4\uc8fc")
+    st.pyplot(fig)
+else:
+    st.warning("\u2757 \uc800\uc7a5\ub41c \ub370\uc774\ud130\uac00 \uc5c6\uc2b5\ub2c8\ub2e4. \uc5d8\ucf69 \ud30c\uc77c\uc744 \uc5c5\ub85c\ub4dc\ud574\uc8fc\uc138\uc694.")
