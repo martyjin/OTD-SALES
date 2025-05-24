@@ -1,11 +1,10 @@
 import pandas as pd
 import streamlit as st
 import os
-from prophet import Prophet
 import matplotlib.pyplot as plt
 
 st.set_page_config(page_title="OTD SALES", layout="wide")
-st.title("OTD 매출 배치 시스템")
+st.title("OTD Sales")
 
 DATA_PATH = "saved_data.csv"
 FORMAT_TAG = "FORMAT_001"
@@ -95,32 +94,5 @@ if not updated_df.empty:
         subset=pd.IndexSlice[["합계"], :],
         **{'background-color': '#fde2e2'}
     ), height=600)
-
-    st.markdown("---")
-    st.markdown("### 4. 월별 매출 예측")
-
-    df_month = updated_df.copy()
-    df_month["월"] = df_month["날짜"].dt.to_period("M").astype(str)
-    monthly_sales = df_month.groupby("월")["매출"].sum().reset_index()
-    monthly_sales["ds"] = pd.to_datetime(monthly_sales["월"] + "-01")
-    monthly_sales = monthly_sales.rename(columns={"매출": "y"})[["ds", "y"]]
-
-    model = Prophet()
-    model.fit(monthly_sales)
-    future = model.make_future_dataframe(periods=2, freq="MS")
-    forecast = model.predict(future)
-
-    forecast_result = forecast[["ds", "yhat"]].tail(2)
-    forecast_result["예측월"] = forecast_result["ds"].dt.to_period("M").astype(str)
-    forecast_result["예상매출"] = forecast_result["yhat"].round().astype(int).apply(lambda x: f"{x:,}")
-    forecast_result = forecast_result[["예측월", "예상매출"]]
-    st.dataframe(forecast_result)
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-    model.plot(forecast, ax=ax)
-    ax.set_title("월별 매출 추이 및 예측")
-    ax.set_xlabel("월")
-    ax.set_ylabel("매출")
-    st.pyplot(fig)
 else:
     st.warning("저장된 데이터가 없습니다. 엑셀 파일을 업로드해주세요.")
