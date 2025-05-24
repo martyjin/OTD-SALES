@@ -88,6 +88,11 @@ with st.expander("📂 데이터 업로드 및 불러오기 설정", expanded=Fa
                 break
 
 if updated_df is not None:
+    def format_int(x):
+        try:
+            return f"{int(x):,}"
+        except:
+            return ""
     df_long = updated_df.melt(id_vars=['사업부', '구분', '사이트', '브랜드'], var_name='날짜', value_name='매출')
     df_long['날짜'] = pd.to_datetime(df_long['날짜'], errors='coerce')
     df_long['매출'] = pd.to_numeric(df_long['매출'], errors='coerce')
