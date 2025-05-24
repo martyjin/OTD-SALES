@@ -132,7 +132,7 @@ if updated_df is not None:
         df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
-site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간2'])['매출'].sum().reset_index()
+    site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간2'])['매출'].sum().reset_index()
 for bu in site_summary['사업부'].unique():
         st.markdown(f"### 🏢 사업부: {bu}")
         bu_df = site_summary[site_summary['사업부'] == bu].copy()
