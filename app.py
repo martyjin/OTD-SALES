@@ -116,12 +116,26 @@ if not updated_df.empty:
 
     st.markdown("---")
     st.markdown("### 3. 브랜드별 매출")
-    unit = st.selectbox("선택: 사업부 / 유형 / 사이트", ["사업부", "유형", "사이트"])
-    unit_list = updated_df[unit].unique().tolist()
-    selected_unit = st.selectbox(f"{unit} 선택", unit_list)
-    df_filtered_brand = updated_df[updated_df[unit] == selected_unit]
-    df_brand = df_filtered_brand.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
-    df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        selected_bu = st.selectbox("사업부 선택 (브랜드 분석)", [""] + sorted(updated_df["사업부"].dropna().unique().tolist()))
+    with col2:
+        selected_type = st.selectbox("유형 선택 (선택사항)", [""] + sorted(updated_df["유형"].dropna().unique().tolist()))
+    with col3:
+        selected_site = st.selectbox("사이트 선택 (선택사항)", [""] + sorted(updated_df["사이트"].dropna().unique().tolist()))
+
+    filtered = updated_df.copy()
+    if selected_bu:
+        filtered = filtered[filtered["사업부"] == selected_bu]
+    if selected_type:
+        filtered = filtered[filtered["유형"] == selected_type]
+    if selected_site:
+        filtered = filtered[filtered["사이트"] == selected_site]
+
+    if not filtered.empty:
+        df_brand = filtered.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
+        df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
     if not df_brand_formatted.empty:
         st.dataframe(df_brand_formatted.style.set_properties(
     subset=pd.IndexSlice[["합계"], :],
