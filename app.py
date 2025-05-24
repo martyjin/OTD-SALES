@@ -153,9 +153,14 @@ for bu in site_summary['사업부'].unique():
         def highlight_subtotal(row):
             return ['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row]
 
-        styled = pivot2_sorted.style.apply(highlight_subtotal, axis=1)
-        for col in pivot2_sorted.columns[2:]:
-            styled = styled.format({col: format_int})
+        pivot2_fmt = pivot2_sorted.copy()
+        for col in pivot2_fmt.columns[2:]:
+            pivot2_fmt[col] = pivot2_fmt[col].apply(format_int)
+
+        def highlight_subtotal_fmt(row):
+            return ['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row]
+
+        styled = pivot2_fmt.style.apply(highlight_subtotal_fmt, axis=1)
         st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
 
 st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
@@ -170,7 +175,7 @@ with col3:
 brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
 brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
 brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).reset_index()
-styled_brand = brand_pivot.style
-for col in brand_pivot.columns[1:]:
-    styled_brand = styled_brand.format({col: format_int})
-st.dataframe(styled_brand, use_container_width=True, hide_index=True, height=350)
+brand_fmt = brand_pivot.copy()
+for col in brand_fmt.columns[1:]:
+    brand_fmt[col] = brand_fmt[col].apply(format_int)
+st.dataframe(brand_fmt, use_container_width=True, hide_index=True, height=350)
