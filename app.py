@@ -52,6 +52,11 @@ st.markdown("""
     ::-webkit-scrollbar {height: 8px; width: 3px;}
     ::-webkit-scrollbar-thumb {background: #999; border-radius: 10px;}
     ::-webkit-scrollbar-track {background: #f0f0f0;}
+    thead tr th:first-child {display:none}
+    tbody th {display:none}
+    td[data-label="합계"], td[data-label="소계"] {
+        background-color: #ffecec;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -91,10 +96,12 @@ if updated_df is not None:
     overall_total['사업부'] = '합계'
     business_summary = pd.concat([business_summary, overall_total[['사업부', '기간', '매출']]], ignore_index=True)
 
-    pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int)
+    pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0)
     pivot1 = pd.concat([pivot1.loc[['합계']], pivot1.drop('합계', errors='ignore')]).reset_index()
-
-    st.dataframe(pivot1, use_container_width=True)
+    pivot1 = pivot1.style.format(thousands=",").apply(
+        lambda x: ['background-color: #ffecec' if v == '합계' else '' for v in pivot1['사업부']], axis=1
+    )
+    st.dataframe(pivot1, use_container_width=True, hide_index=True)
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
     site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
@@ -114,7 +121,7 @@ if updated_df is not None:
 
         combined_df = pd.concat(all_rows)
         combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
-        pivot2 = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int).reset_index()
+        pivot2 = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).reset_index()
 
         result_rows = []
         for div in pivot2['구분'].unique():
@@ -131,7 +138,10 @@ if updated_df is not None:
             else:
                 prev = current
 
-        st.dataframe(pivot2_sorted, use_container_width=True)
+        styled = pivot2_sorted.style.format(thousands=",").apply(
+            lambda df: [['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row] for _, row in df.iterrows()], axis=1
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
 
     st.markdown("<h4>📌 3. 브랜드별 상세 매출 (선택 기반)</h4>", unsafe_allow_html=True)
     selected_bu = st.selectbox("1️⃣ 사업부 선택", df_long['사업부'].unique())
@@ -141,4 +151,5 @@ if updated_df is not None:
     brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
     brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
     brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int).reset_index()
-    st.dataframe(brand_pivot, use_container_width=True)
+    styled_brand = brand_pivot.style.format(thousands=",")
+    st.dataframe(styled_brand, use_container_width=True, hide_index=True)
