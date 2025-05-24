@@ -97,26 +97,17 @@ if updated_df is not None:
     df_long['날짜'] = pd.to_datetime(df_long['날짜'], errors='coerce')
     df_long['매출'] = pd.to_numeric(df_long['매출'], errors='coerce')
 
-    # 1번 보기 방식 (사업부별 매출 합계)
+    
+
+    
+
+    
+
     view_mode1 = st.radio("📅 보기 방식 (사업부별 합계)", ["월별", "일별"], horizontal=True)
     if view_mode1 == "월별":
         df_long['기간1'] = df_long['날짜'].dt.to_period('M').astype(str)
     else:
         df_long['기간1'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
-
-    # 2번 보기 방식 (구분/사이트 요약)
-    view_mode2 = st.radio("📅 보기 방식 (사이트 요약)", ["월별", "일별"], horizontal=True)
-    if view_mode2 == "월별":
-        df_long['기간2'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
-
-    # 3번 보기 방식 (브랜드 매출)
-    view_mode3 = st.radio("📅 보기 방식 (브랜드별)", ["월별", "일별"], horizontal=True)
-    if view_mode3 == "월별":
-        df_long['기간3'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간3'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
 
     st.markdown("<h4>📌 1. 사업부별 매출 합계</h4>", unsafe_allow_html=True)
     business_summary = df_long.groupby(['사업부', '기간1'])['매출'].sum().reset_index()
@@ -130,7 +121,13 @@ for col in pivot1_fmt.columns[1:]:
     pivot1_fmt[col] = pivot1_fmt[col].apply(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
 st.dataframe(pivot1_fmt, use_container_width=True, hide_index=True, height=350)
 
-st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
+view_mode2 = st.radio("📅 보기 방식 (사이트 요약)", ["월별", "일별"], horizontal=True)
+    if view_mode2 == "월별":
+        df_long['기간2'] = df_long['날짜'].dt.to_period('M').astype(str)
+    else:
+        df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
+
+    st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
 site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간2'])['매출'].sum().reset_index()
 for bu in site_summary['사업부'].unique():
         st.markdown(f"### 🏢 사업부: {bu}")
@@ -177,6 +174,12 @@ for bu in site_summary['사업부'].unique():
 
         styled = pivot2_fmt.style.apply(highlight_subtotal_fmt, axis=1)
         st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
+
+view_mode3 = st.radio("📅 보기 방식 (브랜드별)", ["월별", "일별"], horizontal=True)
+    if view_mode3 == "월별":
+        df_long['기간3'] = df_long['날짜'].dt.to_period('M').astype(str)
+    else:
+        df_long['기간3'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
 
 st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns(3)
