@@ -84,8 +84,47 @@ if updated_df is not None:
 
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0)
     pivot1 = pd.concat([pivot1.loc[['합계']], pivot1.drop('합계', errors='ignore')])
-
     styled_pivot1 = pivot1.style.format(thousands=",").apply(
         lambda x: ['background-color: #ffecec' if x.name == '합계' else '' for _ in x], axis=1
     )
     st.dataframe(styled_pivot1, use_container_width=True, hide_index=True)
+
+    st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
+    site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
+    for bu in site_summary['사업부'].unique():
+        st.markdown(f"### 🏢 사업부: {bu}")
+        bu_df = site_summary[site_summary['사업부'] == bu].copy()
+        all_rows = []
+        for div in bu_df['구분'].unique():
+            div_df = bu_df[bu_df['구분'] == div].copy()
+            subtotal = div_df.groupby('기간')['매출'].sum().reset_index()
+            subtotal['구분'] = div
+            subtotal['사이트'] = '합계'
+            subtotal['row_order'] = -1
+            div_df['row_order'] = div_df['사이트'].rank(method='first').astype(int)
+            combined = pd.concat([subtotal[['구분', '사이트', '기간', '매출', 'row_order']], div_df[['구분', '사이트', '기간', '매출', 'row_order']]])
+            all_rows.append(combined)
+
+        combined_df = pd.concat(all_rows)
+        combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
+        pivot2 = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).reset_index()
+
+        result_rows = []
+        for div in pivot2['구분'].unique():
+            temp = pivot2[pivot2['구분'] == div].copy()
+            temp = pd.concat([temp[temp['사이트'] == '합계'], temp[temp['사이트'] != '합계']])
+            result_rows.append(temp)
+        pivot2_sorted = pd.concat(result_rows).reset_index(drop=True)
+
+        prev = None
+        for i in pivot2_sorted.index:
+            current = pivot2_sorted.at[i, '구분']
+            if current == prev:
+                pivot2_sorted.at[i, '구분'] = ''
+            else:
+                prev = current
+
+        styled = pivot2_sorted.style.format(thousands=",").apply(
+            lambda df: [['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row] for _, row in df.iterrows()], axis=1
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
