@@ -38,7 +38,11 @@ def format_table_with_summary(df, group_label):
     # 3. 숫자가 아닌 컬럼
     non_numeric_cols = [col for col in df.columns if col not in existing_numeric_cols]
     keep_cols = non_numeric_cols + keep_numeric_cols
-    df = df[keep_cols]
+
+    # 타입 불일치 방지: mask2를 Series로 변환
+    mask_numeric = (df[existing_numeric_cols] != 0).any(axis=0)
+    mask_keep = df.columns.to_series().isin(existing_numeric_cols)
+    df = df.loc[:, mask_numeric | ~mask_keep]
 
     if df.empty:
         return pd.DataFrame()
