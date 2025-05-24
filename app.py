@@ -28,18 +28,22 @@ def format_table_with_summary(df, group_label):
     if not existing_numeric_cols:
         return df
 
+    # 1. 0이 아닌 데이터가 하나라도 있는 행만 남기기
     df = df.loc[(df[existing_numeric_cols] != 0).any(axis=1)]
 
+    # 2. 사용할 숫자 컬럼 필터링
     non_zero_cols = (df[existing_numeric_cols] != 0).any(axis=0)
     keep_numeric_cols = non_zero_cols[non_zero_cols].index.tolist()
+
+    # 3. 숫자가 아닌 컬럼
     non_numeric_cols = [col for col in df.columns if col not in existing_numeric_cols]
     keep_cols = non_numeric_cols + keep_numeric_cols
-
     df = df[keep_cols]
 
     if df.empty:
         return pd.DataFrame()
 
+    # 4. 합계 행 생성
     sum_row = df[keep_numeric_cols].sum()
     for col in df.columns:
         if col not in keep_numeric_cols:
@@ -47,13 +51,14 @@ def format_table_with_summary(df, group_label):
     sum_row = pd.DataFrame([sum_row])
     if group_label:
         sum_row[group_label] = "합계"
-    df = pd.concat([sum_row, df])
+    df = pd.concat([sum_row, df], ignore_index=True)
 
+    # 5. 숫자 형식 지정
     formatted_df = df.copy()
     for col in keep_numeric_cols:
         formatted_df[col] = formatted_df[col].apply(format_number)
 
-    return formatted_df.reset_index(drop=True)
+    return formatted_df
 
 if os.path.exists(DATA_PATH):
     saved_df = pd.read_csv(DATA_PATH, parse_dates=["날짜"])
