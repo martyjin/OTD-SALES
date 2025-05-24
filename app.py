@@ -97,9 +97,9 @@ if not updated_df.empty:
     df_bu_formatted = format_table_with_summary(df_bu, "사업부")
     if not df_bu_formatted.empty:
         st.dataframe(df_bu_formatted.style.set_properties(
-            subset=pd.IndexSlice[["합계"], :],
-            **{'background-color': '#fde2e2'}
-        ), height=600)
+    subset=pd.IndexSlice[["합계"], :],
+    **{'background-color': '#fde2e2'}
+))
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
@@ -110,9 +110,9 @@ if not updated_df.empty:
     df_site_formatted = format_table_with_summary(df_site, "유형/사이트")
     if not df_site_formatted.empty:
         st.dataframe(df_site_formatted.style.set_properties(
-            subset=pd.IndexSlice[["합계"], :],
-            **{'background-color': '#fde2e2'}
-        ), height=600)
+    subset=pd.IndexSlice[["합계"], :],
+    **{'background-color': '#fde2e2'}
+))
 
     st.markdown("---")
     st.markdown("### 3. 브랜드별 매출")
@@ -124,8 +124,8 @@ if not updated_df.empty:
     df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
     if not df_brand_formatted.empty:
         st.dataframe(df_brand_formatted.style.set_properties(
-            subset=pd.IndexSlice[["합계"], :],
-            **{'background-color': '#fde2e2'}
-        ), height=600)
+    subset=pd.IndexSlice[["합계"], :],
+    **{'background-color': '#fde2e2'}
+))
 else:
     st.warning("저장된 데이터가 없습니다. 엑셀 파일을 업로드해주세요.")
