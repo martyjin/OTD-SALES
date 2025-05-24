@@ -161,19 +161,19 @@ for bu in site_summary['사업부'].unique():
             styled = styled.format({col: "{:,}"})
         st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
 
-    st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        selected_bu = st.selectbox("사업부 선택", df_long['사업부'].unique())
-    with col2:
-        selected_div = st.selectbox("구분 선택", df_long[df_long['사업부'] == selected_bu]['구분'].unique())
-    with col3:
-        selected_site = st.selectbox("사이트 선택", df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div)]['사이트'].unique())
+st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    selected_bu = st.selectbox("사업부 선택", df_long['사업부'].unique())
+with col2:
+    selected_div = st.selectbox("구분 선택", df_long[df_long['사업부'] == selected_bu]['구분'].unique())
+with col3:
+    selected_site = st.selectbox("사이트 선택", df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div)]['사이트'].unique())
 
-    brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
-    brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
-    brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).reset_index()
-    styled_brand = brand_pivot.style
-    for col in brand_pivot.columns[1:]:
-        styled_brand = styled_brand.format({col: "{:,}"})
-    st.dataframe(styled_brand, use_container_width=True, hide_index=True, height=350)
+brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
+brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
+brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).reset_index()
+styled_brand = brand_pivot.style
+for col in brand_pivot.columns[1:]:
+    styled_brand = styled_brand.format({col: "{:,}"})
+st.dataframe(styled_brand, use_container_width=True, hide_index=True, height=350)
