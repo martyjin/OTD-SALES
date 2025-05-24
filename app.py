@@ -97,14 +97,29 @@ if updated_df is not None:
     df_long['날짜'] = pd.to_datetime(df_long['날짜'], errors='coerce')
     df_long['매출'] = pd.to_numeric(df_long['매출'], errors='coerce')
 
-    view_mode = st.radio("📅 보기 방식", ["월별", "일별"], horizontal=True)
-    if view_mode == "월별":
-        df_long['기간'] = df_long['날짜'].dt.to_period('M').astype(str)
+    # 1번 보기 방식 (사업부별 매출 합계)
+    view_mode1 = st.radio("📅 보기 방식 (사업부별 합계)", ["월별", "일별"], horizontal=True)
+    if view_mode1 == "월별":
+        df_long['기간1'] = df_long['날짜'].dt.to_period('M').astype(str)
     else:
-        df_long['기간'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
+        df_long['기간1'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
+
+    # 2번 보기 방식 (구분/사이트 요약)
+    view_mode2 = st.radio("📅 보기 방식 (사이트 요약)", ["월별", "일별"], horizontal=True)
+    if view_mode2 == "월별":
+        df_long['기간2'] = df_long['날짜'].dt.to_period('M').astype(str)
+    else:
+        df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
+
+    # 3번 보기 방식 (브랜드 매출)
+    view_mode3 = st.radio("📅 보기 방식 (브랜드별)", ["월별", "일별"], horizontal=True)
+    if view_mode3 == "월별":
+        df_long['기간3'] = df_long['날짜'].dt.to_period('M').astype(str)
+    else:
+        df_long['기간3'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
 
     st.markdown("<h4>📌 1. 사업부별 매출 합계</h4>", unsafe_allow_html=True)
-    business_summary = df_long.groupby(['사업부', '기간'])['매출'].sum().reset_index()
+    business_summary = df_long.groupby(['사업부', '기간1'])['매출'].sum().reset_index()
     overall_total = business_summary.groupby('기간')['매출'].sum().reset_index()
     overall_total['사업부'] = '합계'
     business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary], ignore_index=True)
@@ -116,7 +131,7 @@ for col in pivot1_fmt.columns[1:]:
 st.dataframe(pivot1_fmt, use_container_width=True, hide_index=True, height=350)
 
 st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
-site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
+site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간2'])['매출'].sum().reset_index()
 for bu in site_summary['사업부'].unique():
         st.markdown(f"### 🏢 사업부: {bu}")
         bu_df = site_summary[site_summary['사업부'] == bu].copy()
@@ -173,7 +188,7 @@ with col3:
     selected_site = st.selectbox("사이트 선택", df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div)]['사이트'].unique())
 
 brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
-brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
+brand_summary = brand_df.groupby(['브랜드', '기간3'])['매출'].sum().reset_index()
 brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).reset_index()
 brand_fmt = brand_pivot.copy()
 for col in brand_fmt.columns[1:]:
