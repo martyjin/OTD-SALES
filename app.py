@@ -21,11 +21,15 @@ def format_number(x):
 
 def format_table_with_summary(df, group_label):
     df = df.copy()
-    df = df[df.sum(axis=1) != 0]
-    df = df.loc[(df != 0).any(axis=1)]
-    df = df.loc[:, (df != 0).any(axis=0)]
+    df = df.loc[(df != 0).any(axis=1)]  # 0이 아닌 값이 있는 행만
+    df = df.loc[:, (df != 0).any(axis=0)]  # 0이 아닌 값이 있는 열만
     if df.empty:
         return df
+    df.loc["합계"] = df.sum(numeric_only=True)
+    df = df.astype(int).applymap(format_number)
+    df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
+    df.index.name = group_label
+    return df
     df.loc["합계"] = df.sum(numeric_only=True)
     df = df.astype(int).applymap(format_number)
     df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
