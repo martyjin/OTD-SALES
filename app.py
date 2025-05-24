@@ -22,6 +22,9 @@ def format_number(x):
 def format_table_with_summary(df, group_label):
     df = df.copy()
     df = df[df.sum(axis=1) != 0]  # 빈 행 제거
+    df = df.loc[(df != 0).any(axis=1)]  # 모든 셀 값이 0인 행 제거 (추가 필터)
+    if df.empty:
+        return df
     df.loc["합계"] = df.sum(numeric_only=True)
     df = df.astype(int).applymap(format_number)
     df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
@@ -66,10 +69,11 @@ if not updated_df.empty:
     st.markdown("### 1. 사업부별 매출 요약")
     df_bu = updated_df.groupby(["사업부", "기준일"])["매출"].sum().unstack(fill_value=0)
     df_bu_formatted = format_table_with_summary(df_bu, "사업부")
-    st.dataframe(df_bu_formatted.style.set_properties(
-        subset=pd.IndexSlice[["합계"], :],
-        **{'background-color': '#fde2e2'}
-    ), height=600)
+    if not df_bu_formatted.empty:
+        st.dataframe(df_bu_formatted.style.set_properties(
+            subset=pd.IndexSlice[["합계"], :],
+            **{'background-color': '#fde2e2'}
+        ), height=600)
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
@@ -78,10 +82,11 @@ if not updated_df.empty:
     df_filtered = updated_df[updated_df["사업부"] == selected_bu]
     df_site = df_filtered.groupby(["유형", "사이트", "기준일"])["매출"].sum().unstack(fill_value=0)
     df_site_formatted = format_table_with_summary(df_site, "유형/사이트")
-    st.dataframe(df_site_formatted.style.set_properties(
-        subset=pd.IndexSlice[["합계"], :],
-        **{'background-color': '#fde2e2'}
-    ), height=600)
+    if not df_site_formatted.empty:
+        st.dataframe(df_site_formatted.style.set_properties(
+            subset=pd.IndexSlice[["합계"], :],
+            **{'background-color': '#fde2e2'}
+        ), height=600)
 
     st.markdown("---")
     st.markdown("### 3. 브랜드별 매출")
@@ -91,9 +96,10 @@ if not updated_df.empty:
     df_filtered_brand = updated_df[updated_df[unit] == selected_unit]
     df_brand = df_filtered_brand.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
     df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
-    st.dataframe(df_brand_formatted.style.set_properties(
-        subset=pd.IndexSlice[["합계"], :],
-        **{'background-color': '#fde2e2'}
-    ), height=600)
+    if not df_brand_formatted.empty:
+        st.dataframe(df_brand_formatted.style.set_properties(
+            subset=pd.IndexSlice[["합계"], :],
+            **{'background-color': '#fde2e2'}
+        ), height=600)
 else:
     st.warning("저장된 데이터가 없습니다. 엑셀 파일을 업로드해주세요.")
