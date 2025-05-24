@@ -120,7 +120,7 @@ st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=35
 
 st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
 site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
-    for bu in site_summary['사업부'].unique():
+for bu in site_summary['사업부'].unique():
         st.markdown(f"### 🏢 사업부: {bu}")
         bu_df = site_summary[site_summary['사업부'] == bu].copy()
         all_rows = []
