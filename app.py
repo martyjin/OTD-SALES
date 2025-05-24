@@ -104,14 +104,16 @@ if updated_df is not None:
             subtotal['구분'] = div
             subtotal['사이트'] = '합계'
             subtotal['사업부'] = bu
-            subtotal = subtotal[['사업부', '구분', '사이트', '기간', '매출']]
-            subtotal['row_order'] = 0
-            div_df['row_order'] = 1
-            div_df = pd.concat([subtotal, div_df], ignore_index=True)
-            combined_rows.append(div_df)
+            subtotal['row_order'] = -1
+            div_df['row_order'] = div_df['사이트'].rank(method='first').astype(int)
+            subtotal = subtotal[['사업부', '구분', '사이트', '기간', '매출', 'row_order']]
+            div_df = div_df[['사업부', '구분', '사이트', '기간', '매출', 'row_order']]
+            div_combined = pd.concat([subtotal, div_df], ignore_index=True)
+            combined_rows.append(div_combined)
 
         combined_df = pd.concat(combined_rows, ignore_index=True)
-        combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
+        combined_df = combined_df.sort_values(by=['구분', 'row_order'])
+        combined_df = combined_df.drop(columns='row_order')
         pivot_df = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
         st.dataframe(pivot_df, use_container_width=True)
 
