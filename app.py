@@ -122,7 +122,7 @@ for col in pivot1_fmt.columns[1:]:
 st.dataframe(pivot1_fmt, use_container_width=True, hide_index=True, height=350)
 
 view_mode2 = st.radio("📅 보기 방식 (사이트 요약)", ["월별", "일별"], horizontal=True)
-    if view_mode2 == "월별":
+if view_mode2 == "월별":
         df_long['기간2'] = df_long['날짜'].dt.to_period('M').astype(str)
     else:
         df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
@@ -176,7 +176,7 @@ for bu in site_summary['사업부'].unique():
         st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
 
 view_mode3 = st.radio("📅 보기 방식 (브랜드별)", ["월별", "일별"], horizontal=True)
-    if view_mode3 == "월별":
+if view_mode3 == "월별":
         df_long['기간3'] = df_long['날짜'].dt.to_period('M').astype(str)
     else:
         df_long['기간3'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
