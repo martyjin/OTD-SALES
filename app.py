@@ -97,19 +97,18 @@ if updated_df is not None:
         st.markdown(f"### 🏢 사업부: {bu}")
         bu_df = site_summary[site_summary['사업부'] == bu].copy()
 
-        # 구분별 소계 추가
-        subtotal_rows = []
+        # 구분별 소계 먼저 추가
+        combined_rows = []
         for div in bu_df['구분'].unique():
             div_df = bu_df[bu_df['구분'] == div]
             subtotal = div_df.groupby('기간')['매출'].sum().reset_index()
             subtotal['구분'] = div
             subtotal['사이트'] = '합계'
             subtotal['사업부'] = bu
-            subtotal_rows.append(subtotal)
+            combined_rows.append(subtotal)
+            combined_rows.append(div_df)  # 구분 소계 다음에 사이트들 추가
 
-        subtotal_df = pd.concat(subtotal_rows)
-        combined_df = pd.concat([subtotal_df, bu_df], ignore_index=True)
-        combined_df = combined_df.sort_values(by=['구분', '사이트'])
+        combined_df = pd.concat(combined_rows, ignore_index=True)
         pivot_df = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
         st.dataframe(pivot_df, use_container_width=True)
 
