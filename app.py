@@ -21,27 +21,29 @@ def format_number(x):
 
 def format_table_with_summary(df, group_label):
     df = df.copy()
-    numeric_cols = df.select_dtypes(include='number').columns
 
-    df = df.loc[(df[numeric_cols] != 0).any(axis=1)]
-    df = df.loc[:, (df[numeric_cols] != 0).any(axis=0) | ~df.columns.isin(numeric_cols)]
+    # 숫자형 컬럼만 골라냄
+    numeric_cols = df.select_dtypes(include='number').columns.tolist()
+    existing_numeric_cols = [col for col in numeric_cols if col in df.columns]
+
+    # 0이 아닌 값이 하나라도 있는 행/열만 남김
+    df = df.loc[(df[existing_numeric_cols] != 0).any(axis=1)]
+    df = df.loc[:, (df[existing_numeric_cols] != 0).any(axis=0) | ~df.columns.isin(existing_numeric_cols)]
 
     if df.empty:
         return pd.DataFrame()
 
     # 합계 행 생성
-    sum_row = df[numeric_cols].sum()
-    sum_row = pd.DataFrame([sum_row], columns=numeric_cols)
-    sum_row.index = ["합계"]
+    sum_row = df[existing_numeric_cols].sum()
     for col in df.columns:
-        if col not in numeric_cols:
+        if col not in existing_numeric_cols:
             sum_row[col] = ""
-
-    df = pd.concat([sum_row, df])
+    sum_row.name = "합계"
+    df = pd.concat([pd.DataFrame([sum_row]), df])
 
     # 숫자 포맷 적용
     formatted_df = df.copy()
-    for col in numeric_cols:
+    for col in existing_numeric_cols:
         formatted_df[col] = formatted_df[col].apply(format_number)
 
     if group_label:
