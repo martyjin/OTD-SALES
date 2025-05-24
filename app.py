@@ -107,7 +107,10 @@ if updated_df is not None:
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0)
     pivot1 = pd.concat([pivot1.loc[['합계']], pivot1.drop('합계', errors='ignore')])
     pivot1 = pivot1.reset_index()
-    styled_pivot1 = pivot1.fillna(0).astype(int).style.apply(
+    pivot1 = pivot1.fillna(0)
+    for col in pivot1.columns[1:]:
+        pivot1[col] = pivot1[col].astype(int)
+    styled_pivot1 = pivot1.style.apply(
         lambda x: ['background-color: #ffecec' if x.name == 0 else '' for _ in x], axis=1
     )
     st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
