@@ -120,7 +120,7 @@ if updated_df is not None:
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).reset_index()
 
     pivot1_fmt = pivot1.copy()
-for col in pivot1_fmt.columns[1:]:
+    for col in pivot1_fmt.columns[1:]:
     pivot1_fmt[col] = pivot1_fmt[col].apply(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
 st.dataframe(pivot1_fmt, use_container_width=True, hide_index=True, height=350)
 
@@ -145,7 +145,7 @@ for bu in site_summary['사업부'].unique():
             div_df['row_order'] = div_df['사이트'].rank(method='first').astype(int)
             subtotal['기간'] = subtotal['기간2']
 div_df['기간'] = div_df['기간2']
-combined = pd.concat([subtotal[['구분', '사이트', '기간', '매출', 'row_order']], div_df[['구분', '사이트', '기간', '매출', 'row_order']]])
+            combined = pd.concat([subtotal[['구분', '사이트', '기간', '매출', 'row_order']], div_df[['구분', '사이트', '기간', '매출', 'row_order']]])
             all_rows.append(combined)
 
         combined_df = pd.concat(all_rows)
