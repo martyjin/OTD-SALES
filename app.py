@@ -107,7 +107,6 @@ if not updated_df.empty:
         st.markdown(f"**▶ 사업부: {bu}**")
         df_filtered = updated_df[updated_df["사업부"] == bu]
         df_site = df_filtered.groupby(["유형", "사이트", "기준일"])["매출"].sum().unstack(fill_value=0)
-        df_site = df_site.reset_index().set_index(["유형", "사이트"])
         df_site_formatted = format_table_with_summary(df_site, "유형/사이트")
         if not df_site_formatted.empty:
             st.dataframe(df_site_formatted.style.set_properties(
