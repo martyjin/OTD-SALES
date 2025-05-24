@@ -103,16 +103,17 @@ if not updated_df.empty:
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
-    bu_list = updated_df["사업부"].unique().tolist()
-    selected_bu = st.selectbox("사업부 선택", bu_list)
-    df_filtered = updated_df[updated_df["사업부"] == selected_bu]
-    df_site = df_filtered.groupby(["유형", "사이트", "기준일"])["매출"].sum().unstack(fill_value=0)
-    df_site_formatted = format_table_with_summary(df_site, "유형/사이트")
-    if not df_site_formatted.empty:
-        st.dataframe(df_site_formatted.style.set_properties(
-    subset=pd.IndexSlice[["합계"], :],
-    **{'background-color': '#fde2e2'}
-))
+    for bu in sorted(updated_df["사업부"].dropna().unique()):
+        st.markdown(f"**▶ 사업부: {bu}**")
+        df_filtered = updated_df[updated_df["사업부"] == bu]
+        df_site = df_filtered.groupby(["유형", "사이트", "기준일"])["매출"].sum().unstack(fill_value=0)
+        df_site_formatted = format_table_with_summary(df_site, "유형/사이트")
+        if not df_site_formatted.empty:
+            st.dataframe(df_site_formatted.style.set_properties(
+                subset=pd.IndexSlice[["합계"], :],
+                **{'background-color': '#fde2e2'}
+            ))
+        st.markdown("---")
 
     st.markdown("---")
     st.markdown("### 3. 브랜드별 매출")
