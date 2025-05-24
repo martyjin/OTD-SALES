@@ -121,7 +121,7 @@ if updated_df is not None:
 
     pivot1_fmt = pivot1.copy()
     for col in pivot1_fmt.columns[1:]:
-    pivot1_fmt[col] = pivot1_fmt[col].apply(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
+        pivot1_fmt[col] = pivot1_fmt[col].apply(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
 st.dataframe(pivot1_fmt, use_container_width=True, hide_index=True, height=350)
 
 view_mode2 = st.radio("📅 보기 방식 (사이트 요약)", ["월별", "일별"], horizontal=True)
