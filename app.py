@@ -87,53 +87,38 @@ if updated_df is not None:
 
     st.markdown("<h4>📌 1. 사업부별 매출 합계</h4>", unsafe_allow_html=True)
     business_summary = df_long.groupby(['사업부', '기간'])['매출'].sum().reset_index()
-    business_pivot = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int)
-    business_pivot_reset = business_pivot.reset_index()
-    business_pivot_reset.loc[:, '합계행'] = ''
-    business_display = []
-    for idx, row in business_pivot_reset.iterrows():
-        summary = pd.DataFrame([row])
-        sub = df_long[df_long['사업부'] == row['사업부']].groupby(['구분', '기간'])['매출'].sum().reset_index()
-        sub_pivot = sub.pivot(index='구분', columns='기간', values='매출').fillna(0).astype(int)
-        sub_pivot.insert(0, '사업부', '')
-        display = pd.concat([summary, sub_pivot.reset_index()], ignore_index=True)
-        business_display.append(display)
-    st.dataframe(pd.concat(business_display), use_container_width=True)
+    overall_total = business_summary.groupby('기간')['매출'].sum().reset_index()
+    overall_total['사업부'] = '합계'
+    business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary])
+    pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int)
+    st.dataframe(pivot1.reset_index(), use_container_width=True)
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
     site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
-
     for bu in site_summary['사업부'].unique():
         st.markdown(f"### 🏢 사업부: {bu}")
         bu_df = site_summary[site_summary['사업부'] == bu].copy()
-
-        final_rows = []
+        all_rows = []
         for div in bu_df['구분'].unique():
             div_df = bu_df[bu_df['구분'] == div].copy()
-            subtotal_row = div_df.groupby('기간')['매출'].sum().reset_index()
-            subtotal_row['사업부'] = ''
-            subtotal_row['구분'] = div
-            subtotal_row['사이트'] = '합계'
-            final_rows.append(subtotal_row[['사업부', '구분', '사이트', '기간', '매출']])
-            div_df['사업부'] = ''
-            final_rows.append(div_df)
-
-        combined_df = pd.concat(final_rows, ignore_index=True)
+            subtotal = div_df.groupby('기간')['매출'].sum().reset_index()
+            subtotal['구분'] = div
+            subtotal['사이트'] = '합계'
+            all_rows.append(subtotal[['구분', '사이트', '기간', '매출']])
+            all_rows.append(div_df.drop(columns='사업부'))
+        combined_df = pd.concat(all_rows)
         combined_df['row_order'] = combined_df['사이트'].apply(lambda x: -1 if x == '합계' else 0)
-        combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
-        pivot_df = combined_df.pivot_table(index=['사업부', '구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
-        st.dataframe(pivot_df, use_container_width=True)
+        combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트'])
+        combined_df = combined_df.drop(columns='row_order')
+        pivot2 = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
+        st.dataframe(pivot2.reset_index(), use_container_width=True)
 
     st.markdown("<h4>📌 3. 브랜드별 상세 매출 (선택 기반)</h4>", unsafe_allow_html=True)
     selected_bu = st.selectbox("1️⃣ 사업부 선택", df_long['사업부'].unique())
     selected_div = st.selectbox("2️⃣ 구분 선택", df_long[df_long['사업부'] == selected_bu]['구분'].unique())
     selected_site = st.selectbox("3️⃣ 사이트 선택", df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div)]['사이트'].unique())
 
-    brand_df = df_long[
-        (df_long['사업부'] == selected_bu) &
-        (df_long['구분'] == selected_div) &
-        (df_long['사이트'] == selected_site)
-    ]
+    brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
     brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
     brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int)
-    st.dataframe(brand_pivot, use_container_width=True)
+    st.dataframe(brand_pivot.reset_index(), use_container_width=True)
