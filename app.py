@@ -30,15 +30,19 @@ def format_table_with_summary(df, group_label):
 
     df = df.loc[(df[existing_numeric_cols] != 0).any(axis=1)]
 
-    mask = df.columns.to_series().isin(existing_numeric_cols)
-    df = df.loc[:, (df[existing_numeric_cols] != 0).any(axis=0).reindex(df.columns, fill_value=False) | ~mask]
+    non_zero_cols = (df[existing_numeric_cols] != 0).any(axis=0)
+    keep_numeric_cols = non_zero_cols[non_zero_cols].index.tolist()
+    non_numeric_cols = [col for col in df.columns if col not in existing_numeric_cols]
+    keep_cols = non_numeric_cols + keep_numeric_cols
+
+    df = df[keep_cols]
 
     if df.empty:
         return pd.DataFrame()
 
-    sum_row = df[existing_numeric_cols].sum()
+    sum_row = df[keep_numeric_cols].sum()
     for col in df.columns:
-        if col not in existing_numeric_cols:
+        if col not in keep_numeric_cols:
             sum_row[col] = ""
     sum_row = pd.DataFrame([sum_row])
     if group_label:
@@ -46,7 +50,7 @@ def format_table_with_summary(df, group_label):
     df = pd.concat([sum_row, df])
 
     formatted_df = df.copy()
-    for col in existing_numeric_cols:
+    for col in keep_numeric_cols:
         formatted_df[col] = formatted_df[col].apply(format_number)
 
     return formatted_df.reset_index(drop=True)
