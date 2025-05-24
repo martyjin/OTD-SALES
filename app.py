@@ -99,16 +99,18 @@ if updated_df is not None:
 
         combined_rows = []
         for div in bu_df['구분'].unique():
-            div_df = bu_df[bu_df['구분'] == div]
+            div_df = bu_df[bu_df['구분'] == div].copy()
             subtotal = div_df.groupby('기간')['매출'].sum().reset_index()
             subtotal['구분'] = div
             subtotal['사이트'] = '합계'
             subtotal['사업부'] = bu
             subtotal = subtotal[['사업부', '구분', '사이트', '기간', '매출']]
-            div_df = pd.concat([subtotal, div_df], ignore_index=True)  # 소계 먼저
+            div_df = pd.concat([subtotal, div_df], ignore_index=True)  # 소계 먼저 추가
             combined_rows.append(div_df)
 
         combined_df = pd.concat(combined_rows, ignore_index=True)
+        combined_df['사이트_sort'] = combined_df['사이트'].apply(lambda x: '0' if x == '합계' else '1')
+        combined_df = combined_df.sort_values(by=['구분', '사이트_sort', '사이트']).drop(columns='사이트_sort')
         pivot_df = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
         st.dataframe(pivot_df, use_container_width=True)
 
