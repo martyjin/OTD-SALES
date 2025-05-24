@@ -103,8 +103,8 @@ if updated_df is not None:
     overall_total = business_summary.groupby('기간')['매출'].sum().reset_index()
     overall_total['사업부'] = '합계'
     business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary], ignore_index=True)
-
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).reset_index()
+
     styled_pivot1 = pivot1.style.format("{:,}").apply(
         lambda x: ['background-color: #ffecec' if x.name == 0 else '' for _ in x], axis=1
     )
