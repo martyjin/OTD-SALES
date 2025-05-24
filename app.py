@@ -21,6 +21,7 @@ def format_number(x):
 
 def format_table_with_summary(df, group_label):
     df = df.copy()
+    df = df[df.sum(axis=1) != 0]  # 빈 행 제거
     df.loc["합계"] = df.sum(numeric_only=True)
     df = df.astype(int).applymap(format_number)
     df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
