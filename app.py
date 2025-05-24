@@ -29,14 +29,20 @@ def format_table_with_summary(df, group_label):
     if df.empty:
         return pd.DataFrame()
 
-    df.loc["합계", numeric_cols] = df[numeric_cols].sum()
+    # 합계 행 생성
+    sum_row = df[numeric_cols].sum()
+    sum_row = pd.DataFrame([sum_row], columns=numeric_cols)
+    sum_row.index = ["합계"]
+    for col in df.columns:
+        if col not in numeric_cols:
+            sum_row[col] = ""
 
+    df = pd.concat([sum_row, df])
+
+    # 숫자 포맷 적용
     formatted_df = df.copy()
     for col in numeric_cols:
         formatted_df[col] = formatted_df[col].apply(format_number)
-
-    rows = ["합계"] + [idx for idx in formatted_df.index if idx != "합계"]
-    formatted_df = formatted_df.loc[rows]
 
     if group_label:
         formatted_df.index.name = group_label
