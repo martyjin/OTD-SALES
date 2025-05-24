@@ -21,15 +21,18 @@ def format_number(x):
 
 def format_table_with_summary(df, group_label):
     df = df.copy()
-    df = df.loc[(df.select_dtypes(include='number') != 0).any(axis=1)]  # 숫자 데이터 기준 0이 아닌 행
-    df = df.loc[:, (df.select_dtypes(include='number') != 0).any(axis=0)]  # 숫자 데이터 기준 0이 아닌 열
+    numeric_cols = df.select_dtypes(include='number').columns
+
+    df = df.loc[(df[numeric_cols] != 0).any(axis=1)]
+    df = df.loc[:, (df[numeric_cols] != 0).any(axis=0) | ~df.columns.isin(numeric_cols)]
+
     if df.empty:
         return pd.DataFrame()
 
-    df.loc["합계"] = df.select_dtypes(include='number').sum()
+    df.loc["합계", numeric_cols] = df[numeric_cols].sum()
 
     formatted_df = df.copy()
-    for col in formatted_df.select_dtypes(include='number').columns:
+    for col in numeric_cols:
         formatted_df[col] = formatted_df[col].apply(format_number)
 
     rows = ["합계"] + [idx for idx in formatted_df.index if idx != "합계"]
