@@ -108,7 +108,9 @@ if not updated_df.empty:
         df_filtered = updated_df[updated_df["사업부"] == bu]
         df_site = df_filtered.groupby(["유형", "사이트", "기준일"])["매출"].sum().unstack(fill_value=0).reset_index()
         df_site.columns.name = None  # 헤더 초기화
-        df_site_formatted = format_table_with_summary(df_site.set_index(["유형", "사이트"]), None)
+        df_site_formatted = format_table_with_summary(df_site, None)
+        df_site_formatted.insert(0, "사이트", df_site_formatted.pop("사이트"))
+        df_site_formatted.insert(0, "유형", df_site_formatted.pop("유형"))
         if not df_site_formatted.empty:
             st.dataframe(df_site_formatted.style.set_properties(
                 subset=pd.IndexSlice[["합계"], :],
