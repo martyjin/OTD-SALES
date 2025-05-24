@@ -150,7 +150,7 @@ if updated_df is not None:
         def highlight_subtotal(row):
             return ['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row]
 
-        styled = pivot2_sorted.style.format("{:,}").apply(highlight_subtotal, axis=1)
+        styled = pivot2_sorted.style.format(lambda x: f"{int(x):,}" if pd.notnull(x) else "").apply(highlight_subtotal, axis=1)
         st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
 
     st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
@@ -165,5 +165,5 @@ if updated_df is not None:
     brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
     brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
     brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int).reset_index()
-    styled_brand = brand_pivot.style.format("{:,}")
+    styled_brand = brand_pivot.style.format(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
     st.dataframe(styled_brand, use_container_width=True, hide_index=True, height=350)
