@@ -102,15 +102,10 @@ if updated_df is not None:
     business_summary = df_long.groupby(['사업부', '기간'])['매출'].sum().reset_index()
     overall_total = business_summary.groupby('기간')['매출'].sum().reset_index()
     overall_total['사업부'] = '합계'
-    business_summary = pd.concat([business_summary, overall_total[['사업부', '기간', '매출']]], ignore_index=True)
+    business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary], ignore_index=True)
 
-    pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0)
-    pivot1 = pd.concat([pivot1.loc[['합계']], pivot1.drop('합계', errors='ignore')])
-    pivot1 = pivot1.reset_index()
-    pivot1 = pivot1.fillna(0)
-    for col in pivot1.columns[1:]:
-        pivot1[col] = pivot1[col].astype(int)
-    styled_pivot1 = pivot1.style.apply(
+    pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).reset_index()
+    styled_pivot1 = pivot1.style.format("{:,}").apply(
         lambda x: ['background-color: #ffecec' if x.name == 0 else '' for _ in x], axis=1
     )
     st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
@@ -153,7 +148,9 @@ if updated_df is not None:
         def highlight_subtotal(row):
             return ['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row]
 
-        styled = pivot2_sorted.style.format(lambda x: f"{int(x):,}" if pd.notnull(x) else "").apply(highlight_subtotal, axis=1)
+        styled = pivot2_sorted.style.apply(highlight_subtotal, axis=1)
+        for col in pivot2_sorted.columns[2:]:
+            styled = styled.format({col: "{:,}"})
         st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
 
     st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
@@ -167,6 +164,8 @@ if updated_df is not None:
 
     brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
     brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
-    brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int).reset_index()
-    styled_brand = brand_pivot.style.format(lambda x: f"{int(x):,}" if pd.notnull(x) else "")
+    brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).reset_index()
+    styled_brand = brand_pivot.style
+    for col in brand_pivot.columns[1:]:
+        styled_brand = styled_brand.format({col: "{:,}"})
     st.dataframe(styled_brand, use_container_width=True, hide_index=True, height=350)
