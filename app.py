@@ -78,7 +78,7 @@ if not updated_df.empty:
     )
 
     st.markdown("### 1. 사업부별 매출 요약")
-    df_bu = updated_df.groupby(["사업부", "기준일"])["매출"].sum().unstack(fill_value=0)
+    df_bu = updated_df.groupby(["사업부", "기준일"])["매출"].sum().unstack().dropna(how='all', axis=0).fillna(0)
     df_bu_formatted = format_table_with_summary(df_bu, "사업부")
     if not df_bu_formatted.empty:
         st.dataframe(df_bu_formatted.style.set_properties(
