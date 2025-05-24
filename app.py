@@ -26,6 +26,9 @@ def format_table_with_summary(df, group_label):
     numeric_cols = df.select_dtypes(include='number').columns.tolist()
     existing_numeric_cols = [col for col in numeric_cols if col in df.columns]
 
+    if not existing_numeric_cols:
+        return df  # 숫자형 컬럼이 없으면 원본 그대로 반환
+
     # 0이 아닌 값이 하나라도 있는 행/열만 남김
     df = df.loc[(df[existing_numeric_cols] != 0).any(axis=1)]
     df = df.loc[:, (df[existing_numeric_cols] != 0).any(axis=0) | ~df.columns.isin(existing_numeric_cols)]
