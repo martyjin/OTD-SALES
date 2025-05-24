@@ -89,11 +89,14 @@ if updated_df is not None:
     business_summary = df_long.groupby(['사업부', '기간'])['매출'].sum().reset_index()
     overall_total = business_summary.groupby('기간')['매출'].sum().reset_index()
     overall_total['사업부'] = '합계'
-    business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary], ignore_index=True)
-    business_summary['sort_order'] = business_summary['사업부'].apply(lambda x: 0 if x == '합계' else 1)
+    business_summary = pd.concat([business_summary, overall_total[['사업부', '기간', '매출']]])
+    business_summary['sort_order'] = business_summary['사업부'].apply(lambda x: -1 if x == '합계' else 0)
     business_summary = business_summary.sort_values(by=['sort_order', '사업부']).drop(columns='sort_order')
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int)
-    st.dataframe(pivot1.reset_index(), use_container_width=True)
+    pivot1 = pivot1.reset_index()
+    # 합계가 0번 인덱스로 가도록 정렬
+    pivot1 = pd.concat([pivot1[pivot1['사업부'] == '합계'], pivot1[pivot1['사업부'] != '합계']])
+    st.dataframe(pivot1, use_container_width=True)
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
     site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
@@ -108,12 +111,18 @@ if updated_df is not None:
             subtotal['사이트'] = '합계'
             subtotal['row_order'] = -1
             div_df['row_order'] = div_df['사이트'].rank(method='first').astype(int)
-            all_rows.append(pd.concat([subtotal[['구분', '사이트', '기간', '매출', 'row_order']], div_df[['구분', '사이트', '기간', '매출', 'row_order']]]))
+            combined = pd.concat([subtotal[['구분', '사이트', '기간', '매출', 'row_order']], div_df[['구분', '사이트', '기간', '매출', 'row_order']]])
+            all_rows.append(combined)
 
         combined_df = pd.concat(all_rows)
         combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
         pivot2 = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
-        st.dataframe(pivot2.reset_index(), use_container_width=True)
+        pivot2 = pivot2.reset_index()
+        # 합계 행이 각 구분의 첫 번째로 오도록 정렬
+        for g in pivot2['구분'].unique():
+            sub_df = pivot2[pivot2['구분'] == g]
+            sub_df = pd.concat([sub_df[sub_df['사이트'] == '합계'], sub_df[sub_df['사이트'] != '합계']])
+            st.dataframe(sub_df, use_container_width=True)
 
     st.markdown("<h4>📌 3. 브랜드별 상세 매출 (선택 기반)</h4>", unsafe_allow_html=True)
     selected_bu = st.selectbox("1️⃣ 사업부 선택", df_long['사업부'].unique())
