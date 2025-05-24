@@ -92,13 +92,26 @@ if updated_df is not None:
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
     site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
-    site_pivot = site_summary.pivot_table(index=['사업부', '구분', '사이트'], columns='기간', values='매출', fill_value=0).reset_index()
 
-    for bu in site_pivot['사업부'].unique():
+    for bu in site_summary['사업부'].unique():
         st.markdown(f"### 🏢 사업부: {bu}")
-        bu_df = site_pivot[site_pivot['사업부'] == bu].drop(columns=['사업부'])
-        bu_df = bu_df.set_index(['구분', '사이트'])
-        st.dataframe(bu_df, use_container_width=True)
+        bu_df = site_summary[site_summary['사업부'] == bu].copy()
+
+        # 구분별 소계 추가
+        subtotal_rows = []
+        for div in bu_df['구분'].unique():
+            div_df = bu_df[bu_df['구분'] == div]
+            subtotal = div_df.groupby('기간')['매출'].sum().reset_index()
+            subtotal['구분'] = div
+            subtotal['사이트'] = '합계'
+            subtotal['사업부'] = bu
+            subtotal_rows.append(subtotal)
+
+        subtotal_df = pd.concat(subtotal_rows)
+        combined_df = pd.concat([subtotal_df, bu_df], ignore_index=True)
+        combined_df = combined_df.sort_values(by=['구분', '사이트'])
+        pivot_df = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
+        st.dataframe(pivot_df, use_container_width=True)
 
     st.markdown("<h4>📌 3. 브랜드별 상세 매출 (선택 기반)</h4>", unsafe_allow_html=True)
     selected_bu = st.selectbox("1️⃣ 사업부 선택", df_long['사업부'].unique())
