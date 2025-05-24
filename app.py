@@ -117,6 +117,9 @@ if updated_df is not None:
     business_summary = business_summary.sort_values(by='row_order', ascending=False).drop(columns='row_order')
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).reset_index()
 
+    pivot1['sort_order'] = pivot1['사업부'].apply(lambda x: -1 if x == '합계' else 0)
+    pivot1 = pivot1.sort_values(by='sort_order', ascending=False).drop(columns='sort_order')
+
     pivot1_fmt = pivot1.copy()
     for col in pivot1_fmt.columns[1:]:
         pivot1_fmt[col] = pivot1_fmt[col].apply(format_int)
