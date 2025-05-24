@@ -38,18 +38,17 @@ def format_table_with_summary(df, group_label):
     for col in df.columns:
         if col not in existing_numeric_cols:
             sum_row[col] = ""
-    sum_row.name = "합계"
-    df = pd.concat([pd.DataFrame([sum_row]), df])
+    sum_row = pd.DataFrame([sum_row])
+    if group_label:
+        sum_row[group_label] = "합계"
+    df = pd.concat([sum_row, df])
 
     # 숫자 포맷 적용
     formatted_df = df.copy()
     for col in existing_numeric_cols:
         formatted_df[col] = formatted_df[col].apply(format_number)
 
-    if group_label:
-        formatted_df.index.name = group_label
-
-    return formatted_df
+    return formatted_df.reset_index(drop=True)
 
 if os.path.exists(DATA_PATH):
     saved_df = pd.read_csv(DATA_PATH, parse_dates=["날짜"])
@@ -81,10 +80,10 @@ else:
 if not updated_df.empty:
     updated_df["날짜"] = pd.to_datetime(updated_df["날짜"])
     updated_df = updated_df[
-    updated_df["사업부"].notna() &
-    (updated_df["사업부"].astype(str).str.strip() != "") &
-    (updated_df["사업부"].astype(str).str.lower() != "nan")
-]
+        updated_df["사업부"].notna() &
+        (updated_df["사업부"].astype(str).str.strip() != "") &
+        (updated_df["사업부"].astype(str).str.lower() != "nan")
+    ]
     updated_df["기준일"] = (
         updated_df["날짜"].dt.to_period("M").astype(str)
         if date_view == "월별"
@@ -96,10 +95,10 @@ if not updated_df.empty:
     df_bu = df_bu.loc[(df_bu != 0).any(axis=1)]
     df_bu_formatted = format_table_with_summary(df_bu, "사업부")
     if not df_bu_formatted.empty:
-        st.dataframe(df_bu_formatted.style.set_properties(
-    subset=pd.IndexSlice[["합계"], :],
-    **{'background-color': '#fde2e2'}
-))
+        highlight = df_bu_formatted["사업부"] == "합계"
+        st.dataframe(df_bu_formatted.style.apply(
+            lambda x: ['background-color: #fde2e2' if h else '' for h in highlight], axis=0
+        ))
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
@@ -113,9 +112,9 @@ if not updated_df.empty:
             df_site_formatted.insert(0, "사이트", df_site_formatted.pop("사이트"))
             df_site_formatted.insert(0, "유형", df_site_formatted.pop("유형"))
             df_site_formatted.columns = ["유형", "사이트"] + df_site_formatted.columns[2:].tolist()
-            st.dataframe(df_site_formatted.style.set_properties(
-                subset=pd.IndexSlice[["합계"], :],
-                **{'background-color': '#fde2e2'}
+            highlight = df_site_formatted["사이트"] == "합계"
+            st.dataframe(df_site_formatted.style.apply(
+                lambda x: ['background-color: #fde2e2' if h else '' for h in highlight], axis=0
             ))
         st.markdown("---")
 
@@ -141,10 +140,10 @@ if not updated_df.empty:
     if not filtered.empty:
         df_brand = filtered.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
         df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
-    if not df_brand_formatted.empty:
-        st.dataframe(df_brand_formatted.style.set_properties(
-    subset=pd.IndexSlice[["합계"], :],
-    **{'background-color': '#fde2e2'}
-))
+        if not df_brand_formatted.empty:
+            highlight = df_brand_formatted["사이트/브랜드"] == "합계"
+            st.dataframe(df_brand_formatted.style.apply(
+                lambda x: ['background-color: #fde2e2' if h else '' for h in highlight], axis=0
+            ))
 else:
     st.warning("저장된 데이터가 없습니다. 엑셀 파일을 업로드해주세요.")
