@@ -46,6 +46,23 @@ def save_data(df, is_monthly):
     df.to_csv(path, index=False)
 
 # ---------------------- Streamlit 앱 시작 ----------------------
+st.set_page_config(layout="wide")
+st.markdown("""
+    <style>
+    ::-webkit-scrollbar {
+        height: 8px;
+        width: 6px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #999;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #f0f0f0;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 st.title("📊 매출 분석 웹앱")
 updated_df = None
 with st.expander("📂 데이터 업로드 및 불러오기 설정", expanded=False):
@@ -74,7 +91,12 @@ if updated_df is not None:
     df_long = updated_df.melt(id_vars=['사업부', '구분', '사이트', '브랜드'], var_name='날짜', value_name='매출')
     df_long['날짜'] = pd.to_datetime(df_long['날짜'], errors='coerce')
     df_long['매출'] = pd.to_numeric(df_long['매출'], errors='coerce')
-    df_long['기간'] = df_long['날짜'].dt.to_period('M').astype(str)
+
+    view_mode = st.radio("📅 보기 방식", ["월별", "일별"], horizontal=True)
+    if view_mode == "월별":
+        df_long['기간'] = df_long['날짜'].dt.to_period('M').astype(str)
+    else:
+        df_long['기간'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
 
     st.markdown("<h4>📌 1. 사업부별 매출 합계</h4>", unsafe_allow_html=True)
     business_summary = df_long.groupby(['사업부', '기간'])['매출'].sum().reset_index()
@@ -85,10 +107,10 @@ if updated_df is not None:
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0)
     pivot1 = pd.concat([pivot1.loc[['합계']], pivot1.drop('합계', errors='ignore')])
     pivot1 = pivot1.reset_index()
-    styled_pivot1 = pivot1.style.format(thousands=",").apply(
+    styled_pivot1 = pivot1.style.format("{:,}").apply(
         lambda x: ['background-color: #ffecec' if x.name == 0 else '' for _ in x], axis=1
     )
-    st.dataframe(styled_pivot1, use_container_width=True, hide_index=True)
+    st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
     site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
@@ -128,5 +150,20 @@ if updated_df is not None:
         def highlight_subtotal(row):
             return ['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row]
 
-        styled = pivot2_sorted.style.format(thousands=",").apply(highlight_subtotal, axis=1)
-        st.dataframe(styled, use_container_width=True, hide_index=True)
+        styled = pivot2_sorted.style.format("{:,}").apply(highlight_subtotal, axis=1)
+        st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
+
+    st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        selected_bu = st.selectbox("사업부 선택", df_long['사업부'].unique())
+    with col2:
+        selected_div = st.selectbox("구분 선택", df_long[df_long['사업부'] == selected_bu]['구분'].unique())
+    with col3:
+        selected_site = st.selectbox("사이트 선택", df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div)]['사이트'].unique())
+
+    brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
+    brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_index()
+    brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).astype(int).reset_index()
+    styled_brand = brand_pivot.style.format("{:,}")
+    st.dataframe(styled_brand, use_container_width=True, hide_index=True, height=350)
