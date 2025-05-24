@@ -143,7 +143,9 @@ for bu in site_summary['사업부'].unique():
             subtotal['사이트'] = '합계'
             subtotal['row_order'] = -1
             div_df['row_order'] = div_df['사이트'].rank(method='first').astype(int)
-            combined = pd.concat([subtotal[['구분', '사이트', '기간', '매출', 'row_order']], div_df[['구분', '사이트', '기간', '매출', 'row_order']]])
+            subtotal['기간'] = subtotal['기간2']
+div_df['기간'] = div_df['기간2']
+combined = pd.concat([subtotal[['구분', '사이트', '기간', '매출', 'row_order']], div_df[['구분', '사이트', '기간', '매출', 'row_order']]])
             all_rows.append(combined)
 
         combined_df = pd.concat(all_rows)
