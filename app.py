@@ -88,7 +88,17 @@ if updated_df is not None:
     st.markdown("<h4>📌 1. 사업부별 매출 합계</h4>", unsafe_allow_html=True)
     business_summary = df_long.groupby(['사업부', '기간'])['매출'].sum().reset_index()
     business_pivot = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int)
-    st.dataframe(business_pivot)
+    business_pivot_reset = business_pivot.reset_index()
+    business_pivot_reset.loc[:, '합계행'] = ''
+    business_display = []
+    for idx, row in business_pivot_reset.iterrows():
+        summary = pd.DataFrame([row])
+        sub = df_long[df_long['사업부'] == row['사업부']].groupby(['구분', '기간'])['매출'].sum().reset_index()
+        sub_pivot = sub.pivot(index='구분', columns='기간', values='매출').fillna(0).astype(int)
+        sub_pivot.insert(0, '사업부', '')
+        display = pd.concat([summary, sub_pivot.reset_index()], ignore_index=True)
+        business_display.append(display)
+    st.dataframe(pd.concat(business_display), use_container_width=True)
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
     site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간'])['매출'].sum().reset_index()
@@ -101,16 +111,17 @@ if updated_df is not None:
         for div in bu_df['구분'].unique():
             div_df = bu_df[bu_df['구분'] == div].copy()
             subtotal_row = div_df.groupby('기간')['매출'].sum().reset_index()
+            subtotal_row['사업부'] = ''
             subtotal_row['구분'] = div
             subtotal_row['사이트'] = '합계'
-            subtotal_row['사업부'] = bu
             final_rows.append(subtotal_row[['사업부', '구분', '사이트', '기간', '매출']])
+            div_df['사업부'] = ''
             final_rows.append(div_df)
 
         combined_df = pd.concat(final_rows, ignore_index=True)
         combined_df['row_order'] = combined_df['사이트'].apply(lambda x: -1 if x == '합계' else 0)
         combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
-        pivot_df = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
+        pivot_df = combined_df.pivot_table(index=['사업부', '구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
         st.dataframe(pivot_df, use_container_width=True)
 
     st.markdown("<h4>📌 3. 브랜드별 상세 매출 (선택 기반)</h4>", unsafe_allow_html=True)
