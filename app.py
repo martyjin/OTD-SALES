@@ -89,10 +89,11 @@ if updated_df is not None:
     business_summary = df_long.groupby(['사업부', '기간'])['매출'].sum().reset_index()
     overall_total = business_summary.groupby('기간')['매출'].sum().reset_index()
     overall_total['사업부'] = '합계'
-    business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary], ignore_index=True)
-    business_summary['sort_order'] = business_summary['사업부'].apply(lambda x: 0 if x == '합계' else 1)
-    business_summary = business_summary.sort_values(by=['sort_order', '사업부']).drop(columns='sort_order')
-    pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int).reset_index()
+    business_summary = pd.concat([business_summary, overall_total[['사업부', '기간', '매출']]], ignore_index=True)
+
+    pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int)
+    pivot1 = pd.concat([pivot1.loc[['합계']], pivot1.drop('합계', errors='ignore')]).reset_index()
+
     st.dataframe(pivot1, use_container_width=True)
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
@@ -115,7 +116,6 @@ if updated_df is not None:
         combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
         pivot2 = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int).reset_index()
 
-        # 구분별로 소계(합계)가 가장 위로 오도록 재정렬
         result_rows = []
         for div in pivot2['구분'].unique():
             temp = pivot2[pivot2['구분'] == div].copy()
@@ -123,7 +123,6 @@ if updated_df is not None:
             result_rows.append(temp)
         pivot2_sorted = pd.concat(result_rows).reset_index(drop=True)
 
-        # 같은 구분은 공란 처리
         prev = None
         for i in pivot2_sorted.index:
             current = pivot2_sorted.at[i, '구분']
