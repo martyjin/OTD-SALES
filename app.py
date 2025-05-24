@@ -123,9 +123,9 @@ st.dataframe(pivot1_fmt, use_container_width=True, hide_index=True, height=350)
 
 view_mode2 = st.radio("📅 보기 방식 (사이트 요약)", ["월별", "일별"], horizontal=True)
 if view_mode2 == "월별":
-        df_long['기간2'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
+    df_long['기간2'] = df_long['날짜'].dt.to_period('M').astype(str)
+else:
+    df_long['기간2'] = df_long['날짜'].dt.strftime('%Y-%m-%d')df_long['날짜'].dt.strftime('%Y-%m-%d')
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
 site_summary = df_long.groupby(['사업부', '구분', '사이트', '기간2'])['매출'].sum().reset_index()
@@ -177,9 +177,9 @@ for bu in site_summary['사업부'].unique():
 
 view_mode3 = st.radio("📅 보기 방식 (브랜드별)", ["월별", "일별"], horizontal=True)
 if view_mode3 == "월별":
-        df_long['기간3'] = df_long['날짜'].dt.to_period('M').astype(str)
-    else:
-        df_long['기간3'] = df_long['날짜'].dt.strftime('%Y-%m-%d')
+    df_long['기간3'] = df_long['날짜'].dt.to_period('M').astype(str)
+else:
+    df_long['기간3'] = df_long['날짜'].dt.strftime('%Y-%m-%d')df_long['날짜'].dt.strftime('%Y-%m-%d')
 
 st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns(3)
