@@ -6,10 +6,11 @@ import numpy as np
 uploaded_file = st.file_uploader("📂 데이터 업로드 및 불러오기 설정", type=['xlsx'])
 if uploaded_file is not None:
     df = pd.read_excel(uploaded_file)
-    df['날짜'] = pd.to_datetime(df['날짜'])
 
-    df_long = df.melt(id_vars=['사업부', '구분', '사이트', '브랜드', '날짜'], var_name='항목', value_name='매출')
-    df_long = df_long[df_long['항목'] == '매출']
+    date_cols = df.columns[4:]
+    df_long = df.melt(id_vars=['사업부', '구분', '사이트', '브랜드'], value_vars=date_cols,
+                      var_name='날짜', value_name='매출')
+    df_long['날짜'] = pd.to_datetime(df_long['날짜'])
 
     def format_int(x):
         return f"{int(x):,}" if pd.notnull(x) else ""
