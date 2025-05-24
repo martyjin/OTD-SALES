@@ -115,7 +115,7 @@ def safe_int_format(x):
         return ""
 
 for col in pivot1.columns[1:]:
-    styled_pivot1 = styled_pivot1.format({col: safe_int_format})
+    styled_pivot1 = styled_pivot1.format({col: lambda x: f"{int(x):,}" if pd.notnull(x) else ""})
 st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
 
 st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
@@ -158,7 +158,7 @@ for bu in site_summary['사업부'].unique():
 
         styled = pivot2_sorted.style.apply(highlight_subtotal, axis=1)
         for col in pivot2_sorted.columns[2:]:
-            styled = styled.format({col: "{:,}"})
+            styled = styled.format({col: lambda x: f"{int(x):,}" if pd.notnull(x) else ""})
         st.dataframe(styled, use_container_width=True, hide_index=True, height=400)
 
 st.markdown("<h4>📌 3. 선택한 사이트 내 브랜드 매출</h4>", unsafe_allow_html=True)
@@ -175,5 +175,5 @@ brand_summary = brand_df.groupby(['브랜드', '기간'])['매출'].sum().reset_
 brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).reset_index()
 styled_brand = brand_pivot.style
 for col in brand_pivot.columns[1:]:
-    styled_brand = styled_brand.format({col: "{:,}"})
+    styled_brand = styled_brand.format({col: lambda x: f"{int(x):,}" if pd.notnull(x) else ""})
 st.dataframe(styled_brand, use_container_width=True, hide_index=True, height=350)
