@@ -84,8 +84,9 @@ if updated_df is not None:
 
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0)
     pivot1 = pd.concat([pivot1.loc[['합계']], pivot1.drop('합계', errors='ignore')])
+    pivot1 = pivot1.reset_index()
     styled_pivot1 = pivot1.style.format(thousands=",").apply(
-        lambda x: ['background-color: #ffecec' if x.name == '합계' else '' for _ in x], axis=1
+        lambda x: ['background-color: #ffecec' if x.name == 0 else '' for _ in x], axis=1
     )
     st.dataframe(styled_pivot1, use_container_width=True, hide_index=True)
 
@@ -124,7 +125,8 @@ if updated_df is not None:
             else:
                 prev = current
 
-        styled = pivot2_sorted.style.format(thousands=",").apply(
-            lambda df: [['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row] for _, row in df.iterrows()], axis=1
-        )
+        def highlight_subtotal(row):
+            return ['background-color: #ffecec' if row['사이트'] == '합계' else '' for _ in row]
+
+        styled = pivot2_sorted.style.format(thousands=",").apply(highlight_subtotal, axis=1)
         st.dataframe(styled, use_container_width=True, hide_index=True)
