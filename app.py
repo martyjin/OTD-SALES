@@ -21,35 +21,24 @@ def format_number(x):
 
 def format_table_with_summary(df, group_label):
     df = df.copy()
-    df = df.loc[(df != 0).any(axis=1)]  # 0이 아닌 값이 있는 행만
-    df = df.loc[:, (df != 0).any(axis=0)]  # 0이 아닌 값이 있는 열만
+    df = df.loc[(df.select_dtypes(include='number') != 0).any(axis=1)]  # 숫자 데이터 기준 0이 아닌 행
+    df = df.loc[:, (df.select_dtypes(include='number') != 0).any(axis=0)]  # 숫자 데이터 기준 0이 아닌 열
     if df.empty:
-        return pd.DataFrame()  # 빈 데이터프레임 반환
-    df.loc["합계"] = df.sum(numeric_only=True)
-    df = df.astype(int).applymap(format_number)
-    df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
-    df.index.name = group_label
-    return df
-    df.loc["합계"] = df.sum(numeric_only=True)
-    df = df.astype(int).applymap(format_number)
-    df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
-    df.index.name = group_label
-    return df
-    df.loc["합계"] = df.sum(numeric_only=True)
-    df = df.astype(int).applymap(format_number)
-    df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
-    df.index.name = group_label
-    return df
-    df.loc["합계"] = df.sum(numeric_only=True)
-    df = df.astype(int).applymap(format_number)
-    df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
-    df.index.name = group_label
-    return df
-    df.loc["합계"] = df.sum(numeric_only=True)
-    df = df.astype(int).applymap(format_number)
-    df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
-    df.index.name = group_label
-    return df
+        return pd.DataFrame()
+
+    df.loc["합계"] = df.select_dtypes(include='number').sum()
+
+    formatted_df = df.copy()
+    for col in formatted_df.select_dtypes(include='number').columns:
+        formatted_df[col] = formatted_df[col].apply(format_number)
+
+    rows = ["합계"] + [idx for idx in formatted_df.index if idx != "합계"]
+    formatted_df = formatted_df.loc[rows]
+
+    if group_label:
+        formatted_df.index.name = group_label
+
+    return formatted_df
 
 if os.path.exists(DATA_PATH):
     saved_df = pd.read_csv(DATA_PATH, parse_dates=["날짜"])
@@ -93,7 +82,7 @@ if not updated_df.empty:
 
     st.markdown("### 1. 사업부별 매출 요약")
     df_bu = updated_df.groupby(["사업부", "기준일"])["매출"].sum().unstack(fill_value=0)
-    df_bu = df_bu.loc[(df_bu != 0).any(axis=1)]  # 모든 값이 0인 행 제거  # 모든 값이 0인 행 제거
+    df_bu = df_bu.loc[(df_bu != 0).any(axis=1)]
     df_bu_formatted = format_table_with_summary(df_bu, "사업부")
     if not df_bu_formatted.empty:
         st.dataframe(df_bu_formatted.style.set_properties(
@@ -107,11 +96,12 @@ if not updated_df.empty:
         st.markdown(f"**▶ 사업부: {bu}**")
         df_filtered = updated_df[updated_df["사업부"] == bu]
         df_site = df_filtered.groupby(["유형", "사이트", "기준일"])["매출"].sum().unstack(fill_value=0).reset_index()
-        df_site.columns.name = None  # 헤더 초기화
+        df_site.columns.name = None
         df_site_formatted = format_table_with_summary(df_site, None)
-        df_site_formatted.insert(0, "사이트", df_site_formatted.pop("사이트"))
-        df_site_formatted.insert(0, "유형", df_site_formatted.pop("유형"))
         if not df_site_formatted.empty:
+            df_site_formatted.insert(0, "사이트", df_site_formatted.pop("사이트"))
+            df_site_formatted.insert(0, "유형", df_site_formatted.pop("유형"))
+            df_site_formatted.columns = ["유형", "사이트"] + df_site_formatted.columns[2:].tolist()
             st.dataframe(df_site_formatted.style.set_properties(
                 subset=pd.IndexSlice[["합계"], :],
                 **{'background-color': '#fde2e2'}
