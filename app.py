@@ -138,7 +138,7 @@ for bu in site_summary['사업부'].unique():
         all_rows = []
         for div in bu_df['구분'].unique():
             div_df = bu_df[bu_df['구분'] == div].copy()
-            subtotal = div_df.groupby('기간')['매출'].sum().reset_index()
+            subtotal = div_df.groupby('기간2')['매출'].sum().reset_index()
             subtotal['구분'] = div
             subtotal['사이트'] = '합계'
             subtotal['row_order'] = -1
@@ -195,7 +195,7 @@ with col3:
 
 brand_df = df_long[(df_long['사업부'] == selected_bu) & (df_long['구분'] == selected_div) & (df_long['사이트'] == selected_site)]
 brand_summary = brand_df.groupby(['브랜드', '기간3'])['매출'].sum().reset_index()
-brand_pivot = brand_summary.pivot(index='브랜드', columns='기간', values='매출').fillna(0).reset_index()
+brand_pivot = brand_summary.pivot(index='브랜드', columns='기간3', values='매출').fillna(0).reset_index()
 brand_fmt = brand_pivot.copy()
 for col in brand_fmt.columns[1:]:
     brand_fmt[col] = brand_fmt[col].apply(format_int)
