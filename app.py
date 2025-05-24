@@ -94,7 +94,6 @@ if updated_df is not None:
     business_summary = business_summary.sort_values(by=['sort_order', '사업부']).drop(columns='sort_order')
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).astype(int)
     pivot1 = pivot1.reset_index()
-    # 합계가 0번 인덱스로 가도록 정렬
     pivot1 = pd.concat([pivot1[pivot1['사업부'] == '합계'], pivot1[pivot1['사업부'] != '합계']])
     st.dataframe(pivot1, use_container_width=True)
 
@@ -118,11 +117,17 @@ if updated_df is not None:
         combined_df = combined_df.sort_values(by=['구분', 'row_order', '사이트']).drop(columns='row_order')
         pivot2 = combined_df.pivot_table(index=['구분', '사이트'], columns='기간', values='매출', fill_value=0).astype(int)
         pivot2 = pivot2.reset_index()
-        # 합계 행이 각 구분의 첫 번째로 오도록 정렬
-        for g in pivot2['구분'].unique():
-            sub_df = pivot2[pivot2['구분'] == g]
-            sub_df = pd.concat([sub_df[sub_df['사이트'] == '합계'], sub_df[sub_df['사이트'] != '합계']])
-            st.dataframe(sub_df, use_container_width=True)
+
+        # 이전 값과 같은 구분은 공란 처리
+        prev = None
+        for i in pivot2.index:
+            current = pivot2.at[i, '구분']
+            if current == prev:
+                pivot2.at[i, '구분'] = ''
+            else:
+                prev = current
+
+        st.dataframe(pivot2, use_container_width=True)
 
     st.markdown("<h4>📌 3. 브랜드별 상세 매출 (선택 기반)</h4>", unsafe_allow_html=True)
     selected_bu = st.selectbox("1️⃣ 사업부 선택", df_long['사업부'].unique())
