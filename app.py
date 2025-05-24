@@ -24,7 +24,12 @@ def format_table_with_summary(df, group_label):
     df = df.loc[(df != 0).any(axis=1)]  # 0이 아닌 값이 있는 행만
     df = df.loc[:, (df != 0).any(axis=0)]  # 0이 아닌 값이 있는 열만
     if df.empty:
-        return df
+        return pd.DataFrame()  # 빈 데이터프레임 반환
+    df.loc["합계"] = df.sum(numeric_only=True)
+    df = df.astype(int).applymap(format_number)
+    df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
+    df.index.name = group_label
+    return df
     df.loc["합계"] = df.sum(numeric_only=True)
     df = df.astype(int).applymap(format_number)
     df = df.loc[["합계"] + [i for i in df.index if i != "합계"]]
@@ -88,7 +93,7 @@ if not updated_df.empty:
 
     st.markdown("### 1. 사업부별 매출 요약")
     df_bu = updated_df.groupby(["사업부", "기준일"])["매출"].sum().unstack(fill_value=0)
-    df_bu = df_bu[(df_bu.T != 0).any()]  # 모든 값이 0인 행 제거
+    df_bu = df_bu.loc[(df_bu != 0).any(axis=1)]  # 모든 값이 0인 행 제거  # 모든 값이 0인 행 제거
     df_bu_formatted = format_table_with_summary(df_bu, "사업부")
     if not df_bu_formatted.empty:
         st.dataframe(df_bu_formatted.style.set_properties(
