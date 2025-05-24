@@ -60,7 +60,11 @@ else:
 
 if not updated_df.empty:
     updated_df["날짜"] = pd.to_datetime(updated_df["날짜"])
-    updated_df = updated_df[updated_df["사업부"].notna() & (updated_df["사업부"].str.strip() != "")]
+    updated_df = updated_df[
+    updated_df["사업부"].notna() &
+    (updated_df["사업부"].astype(str).str.strip() != "") &
+    (updated_df["사업부"].astype(str).str.lower() != "nan")
+]
     updated_df["기준일"] = (
         updated_df["날짜"].dt.to_period("M").astype(str)
         if date_view == "월별"
