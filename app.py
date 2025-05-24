@@ -111,9 +111,12 @@ if updated_df is not None:
 
     st.markdown("<h4>📌 1. 사업부별 매출 합계</h4>", unsafe_allow_html=True)
     business_summary = df_long.groupby(['사업부', '기간1'])['매출'].sum().reset_index()
-    overall_total = business_summary.groupby('기간')['매출'].sum().reset_index()
+    overall_total = business_summary.groupby('기간1')['매출'].sum().reset_index()
     overall_total['사업부'] = '합계'
-    business_summary = pd.concat([overall_total[['사업부', '기간', '매출']], business_summary], ignore_index=True)
+    business_summary = pd.concat([
+        overall_total.rename(columns={'기간1': '기간'})[['사업부', '기간', '매출']],
+        business_summary.rename(columns={'기간1': '기간'})
+    ], ignore_index=True)
     pivot1 = business_summary.pivot(index='사업부', columns='기간', values='매출').fillna(0).reset_index()
 
     pivot1_fmt = pivot1.copy()
