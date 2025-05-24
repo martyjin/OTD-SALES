@@ -108,8 +108,14 @@ if updated_df is not None:
     styled_pivot1 = pivot1.style.apply(
     lambda x: ['background-color: #ffecec' if x.name == 0 else '' for _ in x], axis=1
 )
+def safe_int_format(x):
+    try:
+        return f"{int(x):,}"
+    except:
+        return ""
+
 for col in pivot1.columns[1:]:
-    styled_pivot1 = styled_pivot1.format({col: lambda x: f"{int(x):,}" if pd.notnull(x) else ""})
+    styled_pivot1 = styled_pivot1.format({col: safe_int_format})
 st.dataframe(styled_pivot1, use_container_width=True, hide_index=True, height=350)
 
     st.markdown("<h4>📌 2. 사업부 → 구분 → 사이트 매출 요약</h4>", unsafe_allow_html=True)
