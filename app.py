@@ -115,7 +115,8 @@ if not updated_df.empty:
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
-    selected_site = None
+    selected_site = st.session_state.get("selected_site", None)
+
     for bu in sorted(updated_df["사업부"].dropna().unique()):
         st.markdown(f"**▶ 사업부: {bu}**")
         df_filtered = updated_df[updated_df["사업부"] == bu]
@@ -145,17 +146,13 @@ if not updated_df.empty:
                     last_type = df_site_formatted.loc[i, "유형"]
 
             radio_options = df_site_formatted["사이트"].dropna().tolist()
-            selected_site = st.session_state.get("selected_site", radio_options[0] if radio_options else None)
+            def render_radio(site):
+                checked = "checked" if site == selected_site else ""
+                return f'<input type="radio" name="site_select" value="{site}" {checked}>'
 
-            def site_radio_click():
-                st.session_state["selected_site"] = st.session_state.site_radio
-
-            st.radio("사이트 선택", options=radio_options, index=radio_options.index(selected_site) if selected_site in radio_options else 0, key="site_radio", on_change=site_radio_click, horizontal=True)
-
-            df_site_formatted.insert(0, "선택", df_site_formatted["사이트"].apply(
-                lambda x: "●" if x == st.session_state.get("site_radio") else ""
-            ))
-
+            df_site_formatted.insert(0, "선택", df_site_formatted["사이트"].apply(render_radio))
+            st.markdown("""<style>input[type=radio]{transform:scale(1.3); margin-right:6px}</style>""", unsafe_allow_html=True)
+            st.write("<script>document.querySelectorAll('input[name=site_select]').forEach(el => el.addEventListener('change', e => {window.parent.postMessage({type:'streamlit:setComponentValue', key:'site_radio', value:e.target.value}, '*');}))</script>", unsafe_allow_html=True)
             st.dataframe(df_site_formatted.dropna(how='all', axis=1).style.hide(axis="index"), use_container_width=True)
 
         st.markdown("---")
