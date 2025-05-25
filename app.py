@@ -67,7 +67,7 @@ def highlight_summary_rows(row, column):
     return ['background-color: #fde2e2'] * len(row) if row[column] == "합계" else [''] * len(row)
 
 if os.path.exists(DATA_PATH):
-    saved_df = pd.read_csv(DATA_PATH, parse_dates=["날짜"])
+    saved_df = pd.read_csv(DATA_PATH, encoding="cp949", parse_dates=["날짜"])
 else:
     saved_df = pd.DataFrame(columns=["포맷", "사업부", "유형", "사이트", "브랜드", "날짜", "매출"])
 
