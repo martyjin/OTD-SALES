@@ -173,7 +173,5 @@ for dept in filtered_depts:
     if not trend_by_type.empty:
         pivot = trend_by_type.pivot(index='기준', columns='유형', values='매출').fillna(0)
         st.line_chart(pivot)
-    else:
-        st.info(f"{dept} 사업부에는 유형별 매출 데이터가 없습니다.")
-    else:
-        st.info(f"{dept} 사업부에는 유형별 매출 데이터가 없습니다.")
+    
+    
