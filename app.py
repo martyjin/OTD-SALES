@@ -167,25 +167,21 @@ with st.expander("유형별 매출 추이 보기"):
         st.line_chart(trend.set_index('기준'))
 
 with st.expander("브랜드별 매출 추이 보기"):
-    if selected_dept_graph and selected_type_graph:
-        try:
-            filtered_brands = sorted(
-                data_melted[
-                    (data_melted['사업부'] == selected_dept_graph) &
-                    (data_melted['유형'] == selected_type_graph)
-                ]['브랜드'].dropna().unique()
-            )
-        except Exception:
-            filtered_brands = []
-
-        if filtered_brands:
-            selected_brand_graph = st.selectbox("그래프용 브랜드 선택", filtered_brands, key="graph_brand")
-            graph_df = data_melted[
-                (data_melted['사업부'] == selected_dept_graph) &
-                (data_melted['유형'] == selected_type_graph) &
-                (data_melted['브랜드'] == selected_brand_graph)
-            ]
-            trend = graph_df.groupby(['기준'])['매출'].sum().reset_index()
-            st.line_chart(trend.set_index('기준'))
+    if selected_dept_graph and selected_type_graph and isinstance(selected_type_graph, str):
+        filtered_df = data_melted[
+            (data_melted['사업부'] == selected_dept_graph) &
+            (data_melted['유형'] == selected_type_graph)
+        ]
+        if not filtered_df.empty:
+            filtered_brands = sorted(filtered_df['브랜드'].dropna().unique())
+            if filtered_brands:
+                selected_brand_graph = st.selectbox("그래프용 브랜드 선택", filtered_brands, key="graph_brand")
+                graph_df = filtered_df[filtered_df['브랜드'] == selected_brand_graph]
+                trend = graph_df.groupby(['기준'])['매출'].sum().reset_index()
+                st.line_chart(trend.set_index('기준'))
+            else:
+                st.info("해당 조건에 맞는 브랜드가 없습니다.")
         else:
-            st.info("해당 조건에 맞는 브랜드가 없습니다.")
+            st.info("해당 사업부 및 유형에 매출 데이터가 없습니다.")
+    else:
+        st.info("먼저 사업부와 유형을 선택해주세요.")
