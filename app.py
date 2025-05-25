@@ -24,10 +24,8 @@ def save_data(df):
 
 # 데이터 병합 함수
 def merge_data(old_df, new_df):
-    # '구분' 컬럼이 없으면 기본값으로 생성
     if '구분' not in new_df.columns:
         new_df['구분'] = '미지정'
-
     if old_df is not None and '구분' not in old_df.columns:
         old_df['구분'] = '미지정'
 
@@ -58,11 +56,14 @@ st.title("📊 OTD SALES 매출 분석")
 
 # 로그인 구분
 user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
-
-# 분석 기준 선택 - 사이드바로 이동
 view_mode = st.sidebar.selectbox("분석 기준 선택", ["월별", "일별"])
 
-# 관리자일 때만 비밀번호 입력 및 파일 업로드
+# 관리자 파일명 표시용
+existing_data = load_data()
+if existing_data is not None:
+    st.sidebar.caption(f"📁 저장된 파일 있음: {DATA_FILE.split('/')[-1]}")
+
+# 관리자 전용 파일 업로드
 uploaded_filename = None
 if user_type == "관리자":
     password = st.sidebar.text_input("비밀번호를 입력하세요", type="password")
@@ -79,7 +80,7 @@ if user_type == "관리자":
     else:
         st.warning("올바른 비밀번호를 입력하세요.")
 else:
-    uploaded_file = None  # 일반 사용자에겐 업로드 기능 숨김
+    uploaded_file = None
 
 # 데이터 로딩
 data = load_data()
@@ -101,23 +102,57 @@ data_melted['일자'] = pd.to_datetime(data_melted['일자'], errors='coerce')
 data_melted.dropna(subset=['일자'], inplace=True)
 data_melted['매출'] = pd.to_numeric(data_melted['매출'], errors='coerce').fillna(0)
 
-# 기준 단위
 if view_mode == "월별":
     data_melted['기준'] = data_melted['일자'].dt.to_period("M").astype(str)
 else:
     data_melted['기준'] = data_melted['일자'].dt.strftime("%Y-%m-%d")
 
-# 그룹화
+# 소계 및 합계 스타일링 함수
+def style_summary(df):
+    return df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name != '합계' else 'background-color: #e6f0ff'] * len(x), axis=1)
+
+# 사업부별 매출
 summary = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
-summary_site = data_melted.groupby(['기준', '사이트'])['매출'].sum().reset_index()
-summary_brand = data_melted.groupby(['기준', '브랜드'])['매출'].sum().reset_index()
-
-# UI 출력
+summary_pivot = summary.pivot(index='사업부', columns='기준', values='매출').fillna(0).astype(int)
+summary_pivot.loc['합계'] = summary_pivot.sum()
 st.subheader("1️⃣ 사업부별 매출")
-st.dataframe(summary.pivot(index='사업부', columns='기준', values='매출').fillna(0).applymap(format_number), use_container_width=True)
+st.dataframe(style_summary(summary_pivot.applymap(format_number)), use_container_width=True)
 
+# 사이트별 매출
+summary_site = data_melted.groupby(['기준', '사이트'])['매출'].sum().reset_index()
+site_pivot = summary_site.pivot(index='사이트', columns='기준', values='매출').fillna(0).astype(int)
+site_pivot.loc['합계'] = site_pivot.sum()
 st.subheader("2️⃣ 사이트별 매출")
-st.dataframe(summary_site.pivot(index='사이트', columns='기준', values='매출').fillna(0).applymap(format_number), use_container_width=True)
+st.dataframe(style_summary(site_pivot.applymap(format_number)), use_container_width=True)
 
+# 브랜드별 매출 (선택 필터)
 st.subheader("3️⃣ 브랜드별 매출")
-st.dataframe(summary_brand.pivot(index='브랜드', columns='기준', values='매출').fillna(0).applymap(format_number), use_container_width=True)
+col1, col2, col3 = st.columns(3)
+with col1:
+    selected_dept = st.selectbox("사업부 선택", sorted(data_melted['사업부'].unique()))
+with col2:
+    selected_type = st.selectbox("구분 선택", sorted(data_melted['구분'].unique()))
+with col3:
+    selected_site = st.selectbox("사이트 선택", sorted(data_melted['사이트'].unique()))
+
+filtered = data_melted[(data_melted['사업부'] == selected_dept) &
+                       (data_melted['구분'] == selected_type) &
+                       (data_melted['사이트'] == selected_site)]
+
+brand_summary = filtered.groupby(['기준', '브랜드'])['매출'].sum().reset_index()
+brand_pivot = brand_summary.pivot(index='브랜드', columns='기준', values='매출').fillna(0).astype(int)
+if not brand_pivot.empty:
+    brand_pivot.loc['합계'] = brand_pivot.sum()
+    st.dataframe(style_summary(brand_pivot.applymap(format_number)), use_container_width=True, height=500)
+else:
+    st.info("해당 조건에 맞는 브랜드 매출 데이터가 없습니다.")
+
+# 스크롤바 스타일 조정
+st.markdown("""
+<style>
+::-webkit-scrollbar {
+    height: 14px;
+    width: 14px;
+}
+</style>
+""", unsafe_allow_html=True)
