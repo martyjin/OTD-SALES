@@ -7,12 +7,14 @@ MONTHLY_FILE = os.path.expanduser("~/.streamlit/saved_monthly.csv")
 
 def is_month_based(columns):
     import re
-    date_cols = [col for col in columns if re.match(r'^\d{4}-\d{2}(-\d{2})?$', str(col))]
+    date_cols = [col for col in columns if re.match(r'^\d{4}-\d{2}$', str(col))]
     if not date_cols:
         return False
-    sample = pd.to_datetime(date_cols, errors='coerce')
-    day_parts = sample.dt.day.dropna()
-    return day_parts.nunique() == 1 and day_parts.iloc[0] == 1
+    try:
+        sample = pd.to_datetime(date_cols, format='%Y-%m', errors='coerce')
+        return sample.notna().all()
+    except:
+        return False
 
 def load_data(file_path):
     if os.path.exists(file_path):
@@ -56,7 +58,7 @@ view_mode = st.sidebar.selectbox("분석 기준 선택", ["월별", "일별"])
 # 기존 업로드 여부 확인용 (일자 파일 기준)
 existing_data = load_data(os.path.expanduser("~/.streamlit/saved_daily.csv"))
 if existing_data is not None:
-    st.sidebar.caption(f"📁 저장된 파일 있음: {DATA_FILE.split('/')[-1]}")
+    st.sidebar.caption("📁 저장된 일자 매출 데이터가 감지되었습니다.")
 
 uploaded_filename = None
 if user_type == "관리자":
