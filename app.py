@@ -74,7 +74,12 @@ def format_table_with_summary(df, group_label):
     return formatted_df
 
 def highlight_summary_rows(row, column):
-    return ['background-color: #fde2e2'] * len(row) if "소계" in str(row[column]) or str(row[column]) == "합계" else [''] * len(row)
+    if str(row[column]) == "합계":
+        return ['background-color: #d0e6ff'] * len(row)  # 하늘색 톤
+    elif "소계" in str(row[column]):
+        return ['background-color: #fde2e2'] * len(row)  # 연한 핑크
+    else:
+        return [''] * len(row)
 
 if os.path.exists(DATA_PATH):
     saved_df = pd.read_csv(DATA_PATH, parse_dates=["날짜"])
