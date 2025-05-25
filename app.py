@@ -24,24 +24,24 @@ def save_data(df):
 
 # 데이터 병합 함수
 def merge_data(old_df, new_df):
-    if old_df is None:
-        return new_df
+    # '구분' 컬럼이 없으면 기본값으로 생성
+    if '구분' not in new_df.columns:
+        new_df['구분'] = '미지정'
 
-    # ID 컬럼 체크
+    if old_df is not None and '구분' not in old_df.columns:
+        old_df['구분'] = '미지정'
+
     id_cols = ['사업부', '구분', '사이트', '브랜드']
-    for col in id_cols:
-        if col not in old_df.columns or col not in new_df.columns:
-            st.error(f"병합할 수 없습니다. 누락된 컬럼: {col}")
-            st.stop()
+    merged = old_df.copy() if old_df is not None else pd.DataFrame(columns=new_df.columns)
 
-    merged = old_df.copy()
     for _, row in new_df.iterrows():
         mask = (
             (merged['사업부'] == row['사업부']) &
             (merged['구분'] == row['구분']) &
             (merged['사이트'] == row['사이트']) &
             (merged['브랜드'] == row['브랜드'])
-        )
+        ) if not merged.empty else pd.Series([False] * len(merged))
+
         if mask.any():
             for col in new_df.columns[4:]:
                 if col in merged.columns:
@@ -87,14 +87,11 @@ if data is None:
     st.info("데이터가 없습니다. 관리자만 업로드할 수 있습니다.")
     st.stop()
 
-# ID 컬럼 유효성 확인
-required_columns = ['사업부', '구분', '사이트', '브랜드']
-missing_cols = [col for col in required_columns if col not in data.columns]
-if missing_cols:
-    st.error(f"다음 필수 컬럼이 누락되었습니다: {', '.join(missing_cols)}")
-    st.stop()
+# ID 컬럼 보완
+if '구분' not in data.columns:
+    data['구분'] = '미지정'
 
-# 날짜 컬럼 필터링
+required_columns = ['사업부', '구분', '사이트', '브랜드']
 value_columns = [col for col in data.columns if col not in required_columns]
 
 # Melt
