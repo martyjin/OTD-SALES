@@ -64,10 +64,10 @@ def format_table_with_summary(df, group_label):
     return formatted_df
 
 def highlight_summary_rows(row, column):
-    return ['background-color: #fde2e2'] * len(row) if row[column] == "합계" else [''] * len(row)
+    return ['background-color: #fde2e2'] * len(row) if "소계" in str(row[column]) or str(row[column]) == "합계" else [''] * len(row)
 
 if os.path.exists(DATA_PATH):
-    saved_df = pd.read_csv(DATA_PATH, encoding="cp949", parse_dates=["날짜"])
+    saved_df = pd.read_csv(DATA_PATH, parse_dates=["날짜"])
 else:
     saved_df = pd.DataFrame(columns=["포맷", "사업부", "유형", "사이트", "브랜드", "날짜", "매출"])
 
@@ -145,7 +145,7 @@ if not updated_df.empty:
                 else:
                     last_type = df_site_formatted.loc[i, "유형"]
 
-            st.dataframe(df_site_formatted.dropna(how='all', axis=1).style.hide(axis="index"), use_container_width=True)
+            st.dataframe(df_site_formatted.dropna(how='all', axis=1).style.hide(axis="index").apply(lambda row: highlight_summary_rows(row, "사이트"), axis=1), use_container_width=True)
 
         st.markdown("---")
 
