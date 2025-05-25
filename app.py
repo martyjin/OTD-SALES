@@ -39,7 +39,7 @@ def merge_data(old_df, new_df):
     return merged
 
 st.set_page_config(page_title="OTD SALES", layout="wide")
-st.title("📊 OTD SALES 매출 분석")
+st.title("📊 OTD SALES")
 
 user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
 view_mode = st.sidebar.selectbox("분석 기준 선택", ["월별", "일별"])
@@ -90,7 +90,7 @@ sum_row = pd.DataFrame(summary_pivot.sum()).T
 sum_row.index = ['합계']
 summary_pivot = pd.concat([sum_row, summary_pivot])
 st.subheader("1️⃣ 사업부별 매출")
-st.dataframe(style_summary(summary_pivot.applymap(format_number)), use_container_width=True)
+st.dataframe(style_summary(summary_pivot.applymap(format_number)).set_properties(**{'text-align': 'right'}), use_container_width=True)
 
 # 2️⃣ 사이트별 매출
 st.subheader("2️⃣ 사이트별 매출")
@@ -121,7 +121,7 @@ for dept in 사업부_리스트:
         'background-color: #e6f0ff' if x['사이트'] == '합계' else
         'background-color: #ffe6ea' if '[' in x['사이트'] else ''
     ] * len(x), axis=1)
-    st.dataframe(styled, use_container_width=True)
+    st.dataframe(styled.set_properties(**{'text-align': 'right'}), use_container_width=True)
 
 # 3️⃣ 브랜드별 매출
 st.subheader("3️⃣ 브랜드별 매출")
@@ -142,7 +142,7 @@ if not brand_pivot.empty:
     total = pd.DataFrame(brand_pivot.sum()).T
     total.index = ['합계']
     brand_pivot = pd.concat([total, brand_pivot])
-    st.dataframe(style_summary(brand_pivot.applymap(format_number)), use_container_width=True, height=500)
+    st.dataframe(style_summary(brand_pivot.applymap(format_number)).set_properties(**{'text-align': 'right'}), use_container_width=True, height=500)
 else:
     st.info("해당 조건에 맞는 브랜드 매출 데이터가 없습니다.")
 
@@ -150,19 +150,30 @@ else:
 st.subheader("📈 매출 추이 그래프")
 
 # 사업부별 전체 매출 추이 라인그래프
-trend_by_dept = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
-trend_pivot = trend_by_dept.pivot(index='기준', columns='사업부', values='매출').fillna(0)
-st.line_chart(trend_pivot)
+filtered_trend_by_dept = trend_by_dept[trend_by_dept['사업부'] != '타분류']
+for dept in sorted(filtered_trend_by_dept['사업부'].unique()):
+    st.markdown(f"#### 📊 {dept} 매출 추이")
+    dept_trend = filtered_trend_by_dept[filtered_trend_by_dept['사업부'] == dept]
+    pivot = dept_trend.pivot(index='기준', columns='사업부', values='매출').fillna(0)
+    st.line_chart(pivot)
 
 # 사업부별로 유형별 매출 추이도 각각 표시
 st.markdown("---")
 st.subheader("📈 사업부별 유형 매출 추이")
 
-for dept in sorted(data_melted['사업부'].unique()):
+filtered_depts = [d for d in sorted(data_melted['사업부'].unique()) if d != '타분류']
+for dept in filtered_depts:
     st.markdown(f"#### 🔹 {dept} 사업부")
-    trend_by_type = data_melted[data_melted['사업부'] == dept].groupby(['기준', '유형'])['매출'].sum().reset_index()
+    trend_by_type = data_melted[data_melted['사업부'] == dept].copy()
+
+    if dept == "F&B":
+        trend_by_type = trend_by_type[trend_by_type['유형'] != '직영']
+
+    trend_by_type = trend_by_type.groupby(['기준', '유형'])['매출'].sum().reset_index()
     if not trend_by_type.empty:
         pivot = trend_by_type.pivot(index='기준', columns='유형', values='매출').fillna(0)
         st.line_chart(pivot)
+    else:
+        st.info(f"{dept} 사업부에는 유형별 매출 데이터가 없습니다.")
     else:
         st.info(f"{dept} 사업부에는 유형별 매출 데이터가 없습니다.")
