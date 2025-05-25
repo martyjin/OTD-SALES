@@ -48,9 +48,12 @@ def format_table_with_summary(df, group_label):
     if df.empty:
         return pd.DataFrame()
 
-    # ✅ 수정된 부분: '소계' 포함된 행 제외 후 합계 계산
+    # ✅ 수정된 부분: '소계'와 '합계' 포함된 행 제외 후 합계 계산
     if group_label:
-        sum_df = df[~df[group_label].astype(str).str.contains("소계", na=False)]
+        sum_df = df[
+            ~df[group_label].astype(str).str.contains("소계", na=False) &
+            (df[group_label].astype(str).str.strip() != "합계")
+        ]
     else:
         sum_df = df
 
@@ -139,7 +142,7 @@ if not updated_df.empty:
             summary_rows.extend(group_df.to_dict("records"))
         df_site_expanded = pd.DataFrame(summary_rows)
 
-        df_site_formatted = format_table_with_summary(df_site_expanded, None)
+        df_site_formatted = format_table_with_summary(df_site_expanded, "사이트")
         if not df_site_formatted.empty:
             df_site_formatted.insert(0, "사이트", df_site_formatted.pop("사이트"))
             df_site_formatted.insert(0, "유형", df_site_formatted.pop("유형"))
