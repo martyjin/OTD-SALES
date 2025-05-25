@@ -8,7 +8,7 @@ DATA_FILE = os.path.expanduser("~/.streamlit/saved_data.csv")
 def format_number(n):
     if pd.isna(n):
         return ""
-    return f"{int(n):,}"
+    return f"{int(n):,}".rjust(15)
 
 def load_data():
     if os.path.exists(DATA_FILE):
