@@ -100,7 +100,7 @@ else:
 
 # 소계 및 합계 스타일링 함수
 def style_summary(df):
-    return df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name != '합계' else 'background-color: #e6f0ff'] * len(x), axis=1)
+    return df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name != '합계' and '[' in str(x.name) else 'background-color: #e6f0ff' if x.name == '합계' else ''] * len(x), axis=1)
 
 # 1️⃣ 사업부별 매출
 summary = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
@@ -109,20 +109,36 @@ summary_pivot.loc['합계'] = summary_pivot.sum()
 st.subheader("1️⃣ 사업부별 매출")
 st.dataframe(style_summary(summary_pivot.applymap(format_number)), use_container_width=True)
 
-# 2️⃣ 사이트별 매출 (유형 포함, 중복 제거)
+# 2️⃣ 사이트별 매출 (사업부별 구분 + 유형별 소계 + 유형 내 사이트 나열)
 st.subheader("2️⃣ 사이트별 매출")
-site_grouped = data_melted.groupby(['기준', '유형', '사이트'])['매출'].sum().reset_index()
-site_pivot = site_grouped.pivot(index=['유형', '사이트'], columns='기준', values='매출').fillna(0).astype(int)
-site_pivot.loc[('합계', '')] = site_pivot.sum()
-site_pivot = site_pivot.reset_index()
+site_grouped_all = data_melted.groupby(['기준', '사업부', '유형', '사이트'])['매출'].sum().reset_index()
+사업부_리스트 = sorted(site_grouped_all['사업부'].unique())
 
-# 병합된 셀처럼 중복값 생략을 위해 표시용 컬럼 정리
-site_pivot['유형 표시'] = site_pivot['유형'].mask(site_pivot['유형'] == site_pivot['유형'].shift())
-site_pivot_display = site_pivot.drop(columns=['유형'])
-site_pivot_display = site_pivot_display.rename(columns={'유형 표시': '유형'})
-st.dataframe(style_summary(site_pivot_display.set_index(['유형', '사이트']).applymap(format_number).reset_index()), use_container_width=True)
+for dept in 사업부_리스트:
+    st.markdown(f"### 📍 {dept} 사업부")
+    sub_data = site_grouped_all[site_grouped_all['사업부'] == dept].copy()
 
-# 3️⃣ 브랜드별 매출 (필터 포함)
+    유형_리스트 = sub_data['유형'].unique()
+    df_combined = []
+    for 유형 in 유형_리스트:
+        df_u = sub_data[sub_data['유형'] == 유형].copy()
+        pivot_sites = df_u.pivot(index='사이트', columns='기준', values='매출').fillna(0).astype(int)
+        subtotal = pd.DataFrame(pivot_sites.sum()).T
+        subtotal.index = [f"[{유형} 소계]"]
+        combined = pd.concat([subtotal, pivot_sites])
+        df_combined.append(combined)
+
+    dept_df = pd.concat(df_combined)
+    dept_df.loc['합계'] = dept_df.sum()
+    styled = dept_df.applymap(format_number)
+    styled = styled.reset_index().rename(columns={'index': '사이트'})
+    styled = styled.style.apply(lambda x: [
+        'background-color: #e6f0ff' if x['사이트'] == '합계' else
+        'background-color: #ffe6ea' if '[' in x['사이트'] else ''
+    ] * len(x), axis=1)
+    st.dataframe(styled, use_container_width=True)
+
+# 3️⃣ 브랜드별 매출
 st.subheader("3️⃣ 브랜드별 매출")
 col1, col2, col3 = st.columns(3)
 with col1:
