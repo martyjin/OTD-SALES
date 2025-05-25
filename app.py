@@ -63,6 +63,9 @@ def format_table_with_summary(df, group_label):
 
     return formatted_df
 
+def highlight_summary_rows(row, column):
+    return ['background-color: #fde2e2'] * len(row) if row[column] == "합계" else [''] * len(row)
+
 if os.path.exists(DATA_PATH):
     saved_df = pd.read_csv(DATA_PATH, parse_dates=["날짜"])
 else:
@@ -109,9 +112,7 @@ if not updated_df.empty:
     df_bu_formatted = format_table_with_summary(df_bu.reset_index(), "사업부")
     if not df_bu_formatted.empty:
         df_bu_formatted = df_bu_formatted[["사업부"] + [col for col in df_bu_formatted.columns if col != "사업부"]]
-        st.dataframe(df_bu_formatted.style.hide(axis="index").apply(
-            lambda x: ['background-color: #fde2e2' if v == "합계" else '' for v in x["사업부"]], axis=1
-        ))
+        st.dataframe(df_bu_formatted.style.hide(axis="index").apply(lambda row: highlight_summary_rows(row, "사업부"), axis=1))
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
@@ -168,9 +169,8 @@ if not updated_df.empty:
             df_brand = filtered.groupby(["브랜드", "기준일"])["매출"].sum().unstack(fill_value=0).reset_index()
             df_brand_formatted = format_table_with_summary(df_brand, "브랜드")
             if not df_brand_formatted.empty:
-                st.dataframe(df_brand_formatted.style.hide(axis="index").apply(
-                    lambda x: ['background-color: #fde2e2' if v == "합계" else '' for v in x["브랜드"]], axis=1
-                ))
+                df_brand_formatted = df_brand_formatted[["브랜드"] + [col for col in df_brand_formatted.columns if col != "브랜드"]]
+                st.dataframe(df_brand_formatted.style.hide(axis="index").apply(lambda row: highlight_summary_rows(row, "브랜드"), axis=1))
     else:
         st.markdown("_사이트를 선택하면 브랜드별 매출이 표시됩니다._")
 else:
