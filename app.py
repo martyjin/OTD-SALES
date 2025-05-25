@@ -144,10 +144,13 @@ if not updated_df.empty:
                 else:
                     last_type = df_site_formatted.loc[i, "유형"]
 
-            selected_site = st.radio("사이트 선택", [""] + df_site_formatted["사이트"].dropna().unique().tolist(), key=bu)
-            st.dataframe(df_site_formatted.style.hide(axis="index").apply(
-                lambda x: ['background-color: #fde2e2' if "소계" in str(x["사이트"]) or x["사이트"] == "합계" else '' for _ in x], axis=1
-            ))
+            col1, col2 = st.columns([1, 10])
+            with col1:
+                selected_site = st.radio("", [""] + df_site_formatted["사이트"].dropna().unique().tolist(), key=bu)
+            with col2:
+                st.dataframe(df_site_formatted.style.hide(axis="index").apply(
+                    lambda x: ['background-color: #fde2e2' if "소계" in str(x["사이트"]) or x["사이트"] == "합계" else '' for _ in x], axis=1
+                ))
         st.markdown("---")
 
     st.markdown("---")
@@ -157,7 +160,9 @@ if not updated_df.empty:
         st.markdown(f"**▶ 선택된 사이트: {selected_site}**")
         filtered = updated_df[updated_df["사이트"] == selected_site]
         if not filtered.empty:
-            df_brand = filtered.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
+            df_brand = filtered.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0).reset_index()
+            df_brand["사이트/브랜드"] = df_brand["사이트"] + " / " + df_brand["브랜드"]
+            df_brand = df_brand.drop(columns=["사이트", "브랜드"])
             df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
             if not df_brand_formatted.empty:
                 st.dataframe(df_brand_formatted.style.hide(axis="index").apply(
