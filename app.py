@@ -39,10 +39,15 @@ def format_table_with_summary(df, group_label):
     non_numeric_cols = [col for col in df.columns if col not in existing_numeric_cols]
     keep_cols = non_numeric_cols + keep_numeric_cols
 
-    # 타입 불일치 방지: mask2를 Series로 변환
+    # 논리 연산 가능한 mask 생성
     mask_numeric = (df[existing_numeric_cols] != 0).any(axis=0)
-    mask_keep = df.columns.to_series().isin(existing_numeric_cols)
-    df = df.loc[:, mask_numeric | ~mask_keep]
+    mask_numeric.index = existing_numeric_cols
+
+    is_numeric_col = df.columns.to_series().isin(existing_numeric_cols)
+    is_keep_numeric = df.columns.to_series().isin(mask_numeric[mask_numeric].index)
+    keep_mask = is_keep_numeric | ~is_numeric_col
+
+    df = df.loc[:, keep_mask]
 
     if df.empty:
         return pd.DataFrame()
