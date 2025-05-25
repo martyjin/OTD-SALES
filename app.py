@@ -115,7 +115,6 @@ if not updated_df.empty:
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
-    selected_site = st.session_state.get("selected_site", None)
 
     for bu in sorted(updated_df["사업부"].dropna().unique()):
         st.markdown(f"**▶ 사업부: {bu}**")
@@ -145,14 +144,6 @@ if not updated_df.empty:
                 else:
                     last_type = df_site_formatted.loc[i, "유형"]
 
-            radio_options = df_site_formatted["사이트"].dropna().tolist()
-            def render_radio(site):
-                checked = "checked" if site == selected_site else ""
-                return f'<input type="radio" name="site_select" value="{site}" {checked}>'
-
-            df_site_formatted.insert(0, "선택", df_site_formatted["사이트"].apply(render_radio))
-            st.markdown("""<style>input[type=radio]{transform:scale(1.3); margin-right:6px}</style>""", unsafe_allow_html=True)
-            st.write("<script>document.querySelectorAll('input[name=site_select]').forEach(el => el.addEventListener('change', e => {window.parent.postMessage({type:'streamlit:setComponentValue', key:'site_radio', value:e.target.value}, '*');}))</script>", unsafe_allow_html=True)
             st.dataframe(df_site_formatted.dropna(how='all', axis=1).style.hide(axis="index"), use_container_width=True)
 
         st.markdown("---")
@@ -160,7 +151,16 @@ if not updated_df.empty:
     st.markdown("---")
     st.markdown("### 3. 브랜드별 매출")
 
-    selected_site = st.session_state.get("site_radio", None)
+    col1, col2, col3 = st.columns(3)
+    bu_list = sorted(updated_df["사업부"].dropna().unique())
+    selected_bu = col1.selectbox("사업부 선택", bu_list)
+
+    type_list = sorted(updated_df[updated_df["사업부"] == selected_bu]["유형"].dropna().unique())
+    selected_type = col2.selectbox("유형 선택", type_list)
+
+    site_list = sorted(updated_df[(updated_df["사업부"] == selected_bu) & (updated_df["유형"] == selected_type)]["사이트"].dropna().unique())
+    selected_site = col3.selectbox("사이트 선택", site_list)
+
     if selected_site:
         st.markdown(f"**▶ 선택된 사이트: {selected_site}**")
         filtered = updated_df[updated_df["사이트"] == selected_site]
