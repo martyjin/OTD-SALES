@@ -144,13 +144,13 @@ if not updated_df.empty:
                 else:
                     last_type = df_site_formatted.loc[i, "유형"]
 
-            col1, col2 = st.columns([1, 10])
-            with col1:
-                selected_site = st.radio("", [""] + df_site_formatted["사이트"].dropna().unique().tolist(), key=bu)
-            with col2:
-                st.dataframe(df_site_formatted.style.hide(axis="index").apply(
-                    lambda x: ['background-color: #fde2e2' if "소계" in str(x["사이트"]) or x["사이트"] == "합계" else '' for _ in x], axis=1
-                ))
+            radio_options = df_site_formatted["사이트"].dropna().tolist()
+            selected_site = st.radio("사이트 선택", [""] + radio_options, index=0, horizontal=True, key=bu)
+
+            df_site_formatted.insert(0, "선택", df_site_formatted["사이트"].apply(lambda x: "●" if x == selected_site else "○"))
+            st.dataframe(df_site_formatted[["선택"] + [col for col in df_site_formatted.columns if col != "선택"]].style.hide(axis="index").apply(
+                lambda x: ['background-color: #fde2e2' if "소계" in str(x["사이트"]) or x["사이트"] == "합계" else '' for _ in x], axis=1
+            ))
         st.markdown("---")
 
     st.markdown("---")
