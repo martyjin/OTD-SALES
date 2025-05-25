@@ -48,7 +48,12 @@ def format_table_with_summary(df, group_label):
     if df.empty:
         return pd.DataFrame()
 
-    sum_df = df[~df[group_label].astype(str).str.contains("소계", na=False)] if group_label else df
+    # ✅ 수정된 부분: '소계' 포함된 행 제외 후 합계 계산
+    if group_label:
+        sum_df = df[~df[group_label].astype(str).str.contains("소계", na=False)]
+    else:
+        sum_df = df
+
     sum_row = sum_df[keep_numeric_cols].sum()
     for col in df.columns:
         if col not in keep_numeric_cols:
@@ -56,6 +61,7 @@ def format_table_with_summary(df, group_label):
     sum_row = pd.DataFrame([sum_row])
     if group_label:
         sum_row[group_label] = "합계"
+
     df = pd.concat([sum_row, df], ignore_index=True)
 
     formatted_df = df.copy()
