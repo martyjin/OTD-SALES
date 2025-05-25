@@ -107,12 +107,15 @@ for dept in 사업부_리스트:
         subtotal = pd.DataFrame(pivot_sites.sum()).T
         subtotal.index = [f"[{유형} 소계]"]
         유형_df = pd.concat([subtotal, pivot_sites])
-        df_combined.append(유형_df)
-    dept_df = pd.concat(df_combined)
-    total_row = pd.DataFrame(dept_df.sum()).T
-    total_row.index = ['합계']
-    dept_df = pd.concat([total_row, dept_df])
-    styled = dept_df.applymap(format_number)
+        df_combined.append((유형, 유형_df))
+
+    final_df = pd.concat([df for _, df in df_combined])
+    total_only = final_df[~final_df.index.str.startswith('[') & (final_df.index != '합계')]
+    total_sum = pd.DataFrame(total_only.sum()).T
+    total_sum.index = ['합계']
+    final_df = pd.concat([total_sum, final_df])
+
+    styled = final_df.applymap(format_number)
     styled = styled.reset_index().rename(columns={'index': '사이트'})
     styled = styled.style.apply(lambda x: [
         'background-color: #e6f0ff' if x['사이트'] == '합계' else
