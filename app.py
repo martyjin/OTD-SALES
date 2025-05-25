@@ -145,12 +145,18 @@ if not updated_df.empty:
                     last_type = df_site_formatted.loc[i, "유형"]
 
             radio_options = df_site_formatted["사이트"].dropna().tolist()
-            selected_site = st.radio("사이트 선택", [""] + radio_options, index=0, horizontal=True, key=bu)
+            # 삭제된 표 위 라디오버튼: selected_site = st.radio(...)
+            selected_site = st.session_state.get("selected_site", radio_options[0] if radio_options else None)
 
-            df_site_formatted.insert(0, "선택", df_site_formatted["사이트"].apply(lambda x: "●" if x == selected_site else "○"))
-            st.dataframe(df_site_formatted[["선택"] + [col for col in df_site_formatted.columns if col != "선택"]].style.hide(axis="index").apply(
-                lambda x: ['background-color: #fde2e2' if "소계" in str(x["사이트"]) or x["사이트"] == "합계" else '' for _ in x], axis=1
+            def site_radio_click():
+                st.session_state["selected_site"] = st.session_state["radio_selection"]
+
+            df_site_formatted.insert(0, "선택", df_site_formatted["사이트"].apply(
+                lambda x: st.radio("", radio_options, index=radio_options.index(x), key="radio_selection", on_change=site_radio_click) if x == selected_site else ""
             ))
+
+            st.dataframe(df_site_formatted["선택"] + df_site_formatted.drop(columns="선택"), use_container_width=True)
+
         st.markdown("---")
 
     st.markdown("---")
