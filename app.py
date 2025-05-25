@@ -63,16 +63,19 @@ user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사�
 view_mode = st.sidebar.selectbox("분석 기준 선택", ["월별", "일별"])
 
 # 관리자일 때만 비밀번호 입력 및 파일 업로드
+uploaded_filename = None
 if user_type == "관리자":
     password = st.sidebar.text_input("비밀번호를 입력하세요", type="password")
     if password == "1818":
         uploaded_file = st.sidebar.file_uploader("매출 데이터 엑셀 업로드", type=[".xlsx"])
         if uploaded_file:
+            uploaded_filename = uploaded_file.name
             new_df = pd.read_excel(uploaded_file)
             old_df = load_data()
             merged_df = merge_data(old_df, new_df)
             save_data(merged_df)
             st.success("데이터가 성공적으로 저장되었습니다.")
+            st.sidebar.caption(f"✅ 업로드된 파일: {uploaded_filename}")
     else:
         st.warning("올바른 비밀번호를 입력하세요.")
 else:
@@ -108,27 +111,16 @@ else:
     data_melted['기준'] = data_melted['일자'].dt.strftime("%Y-%m-%d")
 
 # 그룹화
-summary = data_melted.groupby(required_columns + ['기준'], as_index=False)['매출'].sum()
-summary['매출'] = summary['매출'].astype(int)
+summary = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
+summary_site = data_melted.groupby(['기준', '사이트'])['매출'].sum().reset_index()
+summary_brand = data_melted.groupby(['기준', '브랜드'])['매출'].sum().reset_index()
 
-# 피벗
-pivot = summary.pivot_table(index=required_columns, columns='기준', values='매출', fill_value=0).reset_index()
+# UI 출력
+st.subheader("1️⃣ 사업부별 매출")
+st.dataframe(summary.pivot(index='사업부', columns='기준', values='매출').fillna(0).applymap(format_number), use_container_width=True)
 
-# 숫자 포맷
-formatted_pivot = pivot.copy()
-for col in formatted_pivot.columns[len(required_columns):]:
-    formatted_pivot[col] = formatted_pivot[col].apply(format_number)
+st.subheader("2️⃣ 사이트별 매출")
+st.dataframe(summary_site.pivot(index='사이트', columns='기준', values='매출').fillna(0).applymap(format_number), use_container_width=True)
 
-# 합계 행
-sum_row = pivot.iloc[:, len(required_columns):].sum().to_frame().T
-sum_row[required_columns] = ['합계', '', '', '']
-sum_row = sum_row[pivot.columns]
-sum_row_formatted = sum_row.copy()
-for col in sum_row.columns[len(required_columns):]:
-    sum_row_formatted[col] = sum_row_formatted[col].apply(format_number)
-
-final_df = pd.concat([sum_row_formatted, formatted_pivot], ignore_index=True)
-
-# 스타일 적용
-styled_df = final_df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name == 0 else '' for _ in x], axis=1)
-st.dataframe(styled_df, use_container_width=True, height=600)
+st.subheader("3️⃣ 브랜드별 매출")
+st.dataframe(summary_brand.pivot(index='브랜드', columns='기준', values='매출').fillna(0).applymap(format_number), use_container_width=True)
