@@ -8,19 +8,16 @@ st.set_page_config(page_title="OTD SALES", layout="wide")
 st.title("OTD Sales")
 
 DATA_PATH = "saved_data.csv"
-FORMAT_TAG = "FORMAT_001"
 
 st.sidebar.header("엑셀 업로드 및 보기 옵션")
 uploaded_file = st.sidebar.file_uploader("엑셀 파일 업로드", type=["xlsx"])
 date_view = st.sidebar.radio("보기 단위", ["월별", "일별"], horizontal=True)
-
 
 def format_number(x):
     try:
         return f"{int(x):,}"
     except:
         return x
-
 
 def format_table_with_summary(df, group_label):
     df = df.copy()
@@ -74,7 +71,6 @@ def format_table_with_summary(df, group_label):
 
     return formatted_df
 
-
 def aggrid_table(df, pinned_column):
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_default_column(resizable=True, wrapText=True, autoHeight=True)
@@ -89,7 +85,6 @@ def aggrid_table(df, pinned_column):
         fit_columns_on_grid_load=False,
         theme="material"
     )
-
 
 # 엑셀 업로드 또는 저장된 CSV 불러오기
 if uploaded_file:
@@ -108,3 +103,21 @@ st.subheader("1. 사업부별 매출 요약")
 df_bu = df_raw.groupby("사업부").sum(numeric_only=True).reset_index()
 df_bu_formatted = format_table_with_summary(df_bu, "사업부")
 aggrid_table(df_bu_formatted, pinned_column="사업부")
+
+# 사이트별 매출 요약
+st.subheader("2. 사이트별 매출 (사업부 / 유형 기준)")
+df_site = df_raw.groupby(["사업부", "유형", "사이트"]).sum(numeric_only=True).reset_index()
+df_site_formatted = format_table_with_summary(df_site, "사이트")
+aggrid_table(df_site_formatted, pinned_column="사이트")
+
+# 브랜드별 매출
+st.subheader("3. 브랜드별 매출")
+site_list = df_raw["사이트"].dropna().unique().tolist()
+selected_site = st.selectbox("사이트 선택", [""] + site_list)
+
+if selected_site:
+    df_brand = df_raw[df_raw["사이트"] == selected_site]
+    df_brand_grouped = df_brand.groupby("브랜드").sum(numeric_only=True).reset_index()
+    df_brand_formatted = format_table_with_summary(df_brand_grouped, "브랜드")
+    st.markdown(f"#### 선택된 사이트: {selected_site}")
+    aggrid_table(df_brand_formatted, pinned_column="브랜드")
