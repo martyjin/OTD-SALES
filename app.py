@@ -1,123 +1,116 @@
-import pandas as pd
 import streamlit as st
+import pandas as pd
 import os
-import matplotlib.pyplot as plt
-from st_aggrid import AgGrid, GridOptionsBuilder
+from datetime import datetime
 
+DATA_FILE = "saved_data.csv"
+
+# 숫자 포맷 함수
+def format_number(n):
+    if pd.isna(n):
+        return ""
+    return f"{int(n):,}"
+
+# 데이터 로드 함수
+def load_data():
+    if os.path.exists(DATA_FILE):
+        return pd.read_csv(DATA_FILE)
+    return None
+
+# 데이터 저장 함수
+def save_data(df):
+    df.to_csv(DATA_FILE, index=False)
+
+# 데이터 병합 함수
+def merge_data(old_df, new_df):
+    if old_df is None:
+        return new_df
+    merged = old_df.copy()
+    for _, row in new_df.iterrows():
+        mask = (
+            (merged['사업부'] == row['사업부']) &
+            (merged['구분'] == row['구분']) &
+            (merged['사이트'] == row['사이트']) &
+            (merged['브랜드'] == row['브랜드'])
+        )
+        if mask.any():
+            for col in new_df.columns[4:]:
+                if col in merged.columns:
+                    merged.loc[mask, col] = row[col]
+                else:
+                    merged[col] = row[col]
+        else:
+            merged = pd.concat([merged, pd.DataFrame([row])], ignore_index=True)
+    return merged
+
+# 메인 앱
 st.set_page_config(page_title="OTD SALES", layout="wide")
-st.title("OTD Sales")
+st.title("📊 OTD SALES 매출 분석")
 
-DATA_PATH = "saved_data.csv"
+# 로그인 구분 (간단한 비밀번호)
+user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
+if user_type == "관리자":
+    password = st.sidebar.text_input("비밀번호를 입력하세요", type="password")
+    if password != "admin123":
+        st.warning("비밀번호가 틀렸습니다.")
+        st.stop()
 
-st.sidebar.header("엑셀 업로드 및 보기 옵션")
-uploaded_file = st.sidebar.file_uploader("엑셀 파일 업로드", type=["xlsx"])
-date_view = st.sidebar.radio("보기 단위", ["월별", "일별"], horizontal=True)
+uploaded_file = st.sidebar.file_uploader("매출 데이터 엑셀 업로드", type=[".xlsx"])
 
-def format_number(x):
-    try:
-        return f"{int(x):,}"
-    except:
-        return x
+if uploaded_file and user_type == "관리자":
+    new_df = pd.read_excel(uploaded_file)
+    old_df = load_data()
+    merged_df = merge_data(old_df, new_df)
+    save_data(merged_df)
+    st.success("데이터가 성공적으로 저장되었습니다.")
 
-def format_table_with_summary(df, group_label):
-    df = df.copy()
-    numeric_cols = df.select_dtypes(include='number').columns.tolist()
-    existing_numeric_cols = [col for col in numeric_cols if col in df.columns]
-
-    if not existing_numeric_cols:
-        return df
-
-    df = df.loc[(df[existing_numeric_cols] != 0).any(axis=1)]
-
-    non_zero_cols = (df[existing_numeric_cols] != 0).any(axis=0)
-    keep_numeric_cols = non_zero_cols[non_zero_cols].index.tolist()
-
-    non_numeric_cols = [col for col in df.columns if col not in existing_numeric_cols]
-    keep_cols = non_numeric_cols + keep_numeric_cols
-
-    mask_numeric = (df[existing_numeric_cols] != 0).any(axis=0)
-    mask_numeric.index = existing_numeric_cols
-
-    is_numeric_col = df.columns.to_series().isin(existing_numeric_cols)
-    is_keep_numeric = df.columns.to_series().isin(mask_numeric[mask_numeric].index)
-    keep_mask = is_keep_numeric | ~is_numeric_col
-
-    df = df.loc[:, keep_mask]
-
-    if df.empty:
-        return pd.DataFrame()
-
-    if group_label:
-        sum_df = df[
-            ~df[group_label].astype(str).str.contains("소계", na=False) &
-            (df[group_label].astype(str).str.strip() != "합계")
-        ]
-    else:
-        sum_df = df
-
-    sum_row = sum_df[keep_numeric_cols].sum()
-    for col in df.columns:
-        if col not in keep_numeric_cols:
-            sum_row[col] = ""
-    sum_row = pd.DataFrame([sum_row])
-    if group_label:
-        sum_row[group_label] = "합계"
-
-    df = pd.concat([sum_row, df], ignore_index=True)
-
-    formatted_df = df.copy()
-    for col in keep_numeric_cols:
-        formatted_df[col] = formatted_df[col].apply(format_number)
-
-    return formatted_df
-
-def aggrid_table(df, pinned_column):
-    gb = GridOptionsBuilder.from_dataframe(df)
-    gb.configure_default_column(resizable=True, wrapText=True, autoHeight=True)
-    if pinned_column in df.columns:
-        gb.configure_column(pinned_column, pinned="left")
-    grid_options = gb.build()
-    AgGrid(
-        df,
-        gridOptions=grid_options,
-        height=600,
-        width="100%",
-        fit_columns_on_grid_load=False,
-        theme="material"
-    )
-
-# 엑셀 업로드 또는 저장된 CSV 불러오기
-if uploaded_file:
-    df_raw = pd.read_excel(uploaded_file, sheet_name=0)
-    df_raw.to_csv(DATA_PATH, index=False, encoding="utf-8-sig")
-    st.success("데이터가 업로드되어 저장되었습니다.")
-elif os.path.exists(DATA_PATH):
-    df_raw = pd.read_csv(DATA_PATH, encoding="utf-8-sig")
-    st.info("저장된 데이터를 불러왔습니다. 새 파일을 업로드하면 자동으로 반영됩니다.")
-else:
-    st.warning("엑셀 파일을 업로드해주세요.")
+data = load_data()
+if data is None:
+    st.info("데이터가 없습니다. 관리자만 업로드할 수 있습니다.")
     st.stop()
 
-# 사업부별 매출 요약 테이블 생성 및 표시
-st.subheader("1. 사업부별 매출 요약")
-df_bu = df_raw.groupby("사업부").sum(numeric_only=True).reset_index()
-df_bu_formatted = format_table_with_summary(df_bu, "사업부")
-aggrid_table(df_bu_formatted, pinned_column="사업부")
+# 사용자 선택 필터
+view_mode = st.selectbox("분석 기준 선택", ["월별", "일별"])
 
-# 사이트별 매출 요약
-st.subheader("2. 사이트별 매출 (사업부 / 유형 기준)")
-df_site = df_raw.groupby(["사업부", "유형", "사이트"]).sum(numeric_only=True).reset_index()
-df_site_formatted = format_table_with_summary(df_site, "사이트")
-aggrid_table(df_site_formatted, pinned_column="사이트")
+# 날짜 열 필터링
+value_columns = [col for col in data.columns if col not in ['사업부', '구분', '사이트', '브랜드']]
 
-# 브랜드별 매출
-st.subheader("3. 브랜드별 매출")
-site_list = df_raw["사이트"].dropna().unique().tolist()
-selected_site = st.selectbox("사이트 선택", [""] + site_list)
+# melt로 구조 변경
+data_melted = data.melt(id_vars=['사업부', '구분', '사이트', '브랜드'], value_vars=value_columns,
+                        var_name="일자", value_name="매출")
+data_melted['일자'] = pd.to_datetime(data_melted['일자'], errors='coerce')
+data_melted.dropna(subset=['일자'], inplace=True)
 
-if selected_site:
-    df_brand = df_raw[df_raw["사이트"] == selected_site]
-    df_brand_grouped = df_brand.groupby("브랜드").sum(numeric_only=True).reset_index()
-    df_brand_formatted = format_table_with_summary(df_brand_grouped, "브랜드")
-    st.markdown(f"#### 선택된 사이트: {selected_site}")
-    aggrid_table(df_brand_formatted, pinned_column="브랜드")
+data_melted['매출'] = pd.to_numeric(data_melted['매출'], errors='coerce').fillna(0)
+
+# 기준 단위
+if view_mode == "월별":
+    data_melted['기준'] = data_melted['일자'].dt.to_period("M").astype(str)
+else:
+    data_melted['기준'] = data_melted['일자'].dt.strftime("%Y-%m-%d")
+
+# 그룹화 및 합계
+summary = data_melted.groupby(['사업부', '구분', '사이트', '브랜드', '기준'], as_index=False)['매출'].sum()
+summary['매출'] = summary['매출'].astype(int)
+
+# 피벗
+pivot = summary.pivot_table(index=['사업부', '구분', '사이트', '브랜드'], columns='기준', values='매출', fill_value=0).reset_index()
+
+# 숫자 포맷 적용
+formatted_pivot = pivot.copy()
+for col in formatted_pivot.columns[4:]:
+    formatted_pivot[col] = formatted_pivot[col].apply(format_number)
+
+# 합계 행 추가
+sum_row = pivot.iloc[:, 4:].sum().to_frame().T
+sum_row[['사업부', '구분', '사이트', '브랜드']] = ['합계', '', '', '']
+sum_row = sum_row[pivot.columns]  # 열 순서 맞춤
+sum_row_formatted = sum_row.copy()
+for col in sum_row.columns[4:]:
+    sum_row_formatted[col] = sum_row_formatted[col].apply(format_number)
+
+final_df = pd.concat([sum_row_formatted, formatted_pivot], ignore_index=True)
+
+# 스타일 적용 후 출력
+styled_df = final_df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name == 0 else '' for _ in x], axis=1)
+st.dataframe(styled_df, use_container_width=True, height=600)
