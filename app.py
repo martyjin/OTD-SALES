@@ -168,10 +168,15 @@ with st.expander("유형별 매출 추이 보기"):
 
 with st.expander("브랜드별 매출 추이 보기"):
     if selected_dept_graph and selected_type_graph:
-        filtered_brands = sorted(data_melted[
-            (data_melted['사업부'] == selected_dept_graph) &
-            (data_melted['유형'] == selected_type_graph)
-        ]['브랜드'].dropna().unique())
+        try:
+            filtered_brands = sorted(
+                data_melted[
+                    (data_melted['사업부'] == selected_dept_graph) &
+                    (data_melted['유형'] == selected_type_graph)
+                ]['브랜드'].dropna().unique()
+            )
+        except Exception:
+            filtered_brands = []
 
         if filtered_brands:
             selected_brand_graph = st.selectbox("그래프용 브랜드 선택", filtered_brands, key="graph_brand")
@@ -182,3 +187,5 @@ with st.expander("브랜드별 매출 추이 보기"):
             ]
             trend = graph_df.groupby(['기준'])['매출'].sum().reset_index()
             st.line_chart(trend.set_index('기준'))
+        else:
+            st.info("해당 조건에 맞는 브랜드가 없습니다.")
