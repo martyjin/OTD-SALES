@@ -149,39 +149,20 @@ else:
 # 4️⃣ 매출 추이 그래프
 st.subheader("📈 매출 추이 그래프")
 
-selected_dept_graph = None
-selected_type_graph = None
+# 사업부별 전체 매출 추이 라인그래프
+trend_by_dept = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
+trend_pivot = trend_by_dept.pivot(index='기준', columns='사업부', values='매출').fillna(0)
+st.line_chart(trend_pivot)
 
-with st.expander("사업부별 매출 추이 보기"):
-    selected_dept_graph = st.selectbox("그래프용 사업부 선택", sorted(data_melted['사업부'].unique()), key="graph_dept")
-    graph_df = data_melted[data_melted['사업부'] == selected_dept_graph]
-    trend = graph_df.groupby(['기준'])['매출'].sum().reset_index()
-    st.line_chart(trend.set_index('기준'))
+# 사업부별로 유형별 매출 추이도 각각 표시
+st.markdown("---")
+st.subheader("📈 사업부별 유형 매출 추이")
 
-with st.expander("유형별 매출 추이 보기"):
-    if selected_dept_graph:
-        filtered_types = sorted(data_melted[data_melted['사업부'] == selected_dept_graph]['유형'].unique())
-        selected_type_graph = st.selectbox("그래프용 유형 선택", filtered_types, key="graph_type")
-        graph_df = data_melted[(data_melted['사업부'] == selected_dept_graph) & (data_melted['유형'] == selected_type_graph)]
-        trend = graph_df.groupby(['기준'])['매출'].sum().reset_index()
-        st.line_chart(trend.set_index('기준'))
-
-with st.expander("브랜드별 매출 추이 보기"):
-    if selected_dept_graph and selected_type_graph and isinstance(selected_type_graph, str):
-        filtered_df = data_melted[
-            (data_melted['사업부'] == selected_dept_graph) &
-            (data_melted['유형'] == selected_type_graph)
-        ]
-        if not filtered_df.empty:
-            filtered_brands = sorted(filtered_df['브랜드'].dropna().unique())
-            if filtered_brands:
-                selected_brand_graph = st.selectbox("그래프용 브랜드 선택", filtered_brands, key="graph_brand")
-                graph_df = filtered_df[filtered_df['브랜드'] == selected_brand_graph]
-                trend = graph_df.groupby(['기준'])['매출'].sum().reset_index()
-                st.line_chart(trend.set_index('기준'))
-            else:
-                st.info("해당 조건에 맞는 브랜드가 없습니다.")
-        else:
-            st.info("해당 사업부 및 유형에 매출 데이터가 없습니다.")
+for dept in sorted(data_melted['사업부'].unique()):
+    st.markdown(f"#### 🔹 {dept} 사업부")
+    trend_by_type = data_melted[data_melted['사업부'] == dept].groupby(['기준', '유형'])['매출'].sum().reset_index()
+    if not trend_by_type.empty:
+        pivot = trend_by_type.pivot(index='기준', columns='유형', values='매출').fillna(0)
+        st.line_chart(pivot)
     else:
-        st.info("먼저 사업부와 유형을 선택해주세요.")
+        st.info(f"{dept} 사업부에는 유형별 매출 데이터가 없습니다.")
