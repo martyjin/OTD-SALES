@@ -51,7 +51,7 @@ st.title("📊 OTD SALES 매출 분석")
 user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
 if user_type == "관리자":
     password = st.sidebar.text_input("비밀번호를 입력하세요", type="password")
-    if password != "admin123":
+    if password != "181818":
         st.warning("비밀번호가 틀렸습니다.")
         st.stop()
 
