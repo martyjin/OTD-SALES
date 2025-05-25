@@ -149,6 +149,7 @@ else:
 # 4️⃣ 매출 추이 그래프
 st.subheader("📈 매출 추이 그래프")
 
+selected_dept_graph = None
 selected_type_graph = None
 
 with st.expander("사업부별 매출 추이 보기"):
@@ -166,7 +167,7 @@ with st.expander("유형별 매출 추이 보기"):
         st.line_chart(trend.set_index('기준'))
 
 with st.expander("브랜드별 매출 추이 보기"):
-    if selected_dept_graph and selected_type_graph:
+    if selected_dept_graph is not None and selected_type_graph is not None:
         filtered_brands = sorted(data_melted[(data_melted['사업부'] == selected_dept_graph) & (data_melted['유형'] == selected_type_graph)]['브랜드'].unique())
         selected_brand_graph = st.selectbox("그래프용 브랜드 선택", filtered_brands, key="graph_brand")
         graph_df = data_melted[(data_melted['사업부'] == selected_dept_graph) & (data_melted['유형'] == selected_type_graph) & (data_melted['브랜드'] == selected_brand_graph)]
