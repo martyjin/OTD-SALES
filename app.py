@@ -50,6 +50,9 @@ st.title("📊 OTD SALES 매출 분석")
 # 로그인 구분
 user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
 
+# 분석 기준 선택 - 사이드바로 이동
+view_mode = st.sidebar.selectbox("분석 기준 선택", ["월별", "일별"])
+
 # 관리자일 때만 비밀번호 입력 및 파일 업로드
 if user_type == "관리자":
     password = st.sidebar.text_input("비밀번호를 입력하세요", type="password")
@@ -71,9 +74,6 @@ data = load_data()
 if data is None:
     st.info("데이터가 없습니다. 관리자만 업로드할 수 있습니다.")
     st.stop()
-
-# 분석 기준 선택
-view_mode = st.selectbox("분석 기준 선택", ["월별", "일별"])
 
 # ID 컬럼 유효성 확인
 required_columns = ['사업부', '구분', '사이트', '브랜드']
