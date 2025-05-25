@@ -68,6 +68,21 @@ if user_type == "관리자":
         if uploaded_file:
             uploaded_filename = uploaded_file.name
             new_df = pd.read_excel(uploaded_file)
+
+            # 월기반 데이터일 경우, 일자기반 참조를 이용해 '사업부', '유형', '브랜드' 채우기
+            if is_month_based(new_df.columns):
+                daily_ref = load_data(os.path.expanduser("~/.streamlit/saved_daily.csv"))
+                if daily_ref is not None:
+                    ref_cols = ['사이트', '사업부', '유형', '브랜드']
+                    ref_table = daily_ref[ref_cols].drop_duplicates()
+                    new_df = pd.merge(new_df, ref_table, on='사이트', how='left')
+                    for col in ['사업부', '유형', '브랜드']:
+                        if col not in new_df.columns:
+                            new_df[col] = '미정'
+                        new_df[col] = new_df[col].fillna('미정')
+                else:
+                    for col in ['사업부', '유형', '브랜드']:
+                        new_df[col] = '미정'
             if is_month_based(new_df.columns):
                 old_df = load_data(MONTHLY_FILE)
                 merged_df = merge_data(old_df, new_df)
