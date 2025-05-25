@@ -28,18 +28,14 @@ def format_table_with_summary(df, group_label):
     if not existing_numeric_cols:
         return df
 
-    # 1. 0이 아닌 데이터가 하나라도 있는 행만 남기기
     df = df.loc[(df[existing_numeric_cols] != 0).any(axis=1)]
 
-    # 2. 사용할 숫자 컬럼 필터링
     non_zero_cols = (df[existing_numeric_cols] != 0).any(axis=0)
     keep_numeric_cols = non_zero_cols[non_zero_cols].index.tolist()
 
-    # 3. 숫자가 아닌 컬럼
     non_numeric_cols = [col for col in df.columns if col not in existing_numeric_cols]
     keep_cols = non_numeric_cols + keep_numeric_cols
 
-    # 논리 연산 가능한 mask 생성
     mask_numeric = (df[existing_numeric_cols] != 0).any(axis=0)
     mask_numeric.index = existing_numeric_cols
 
@@ -52,7 +48,6 @@ def format_table_with_summary(df, group_label):
     if df.empty:
         return pd.DataFrame()
 
-    # 4. 합계 행 생성
     sum_row = df[keep_numeric_cols].sum()
     for col in df.columns:
         if col not in keep_numeric_cols:
@@ -62,7 +57,6 @@ def format_table_with_summary(df, group_label):
         sum_row[group_label] = "합계"
     df = pd.concat([sum_row, df], ignore_index=True)
 
-    # 5. 숫자 형식 지정
     formatted_df = df.copy()
     for col in keep_numeric_cols:
         formatted_df[col] = formatted_df[col].apply(format_number)
@@ -114,19 +108,30 @@ if not updated_df.empty:
     df_bu = df_bu.loc[(df_bu != 0).any(axis=1)]
     df_bu_formatted = format_table_with_summary(df_bu.reset_index(), "사업부")
     if not df_bu_formatted.empty:
-        df_bu_formatted = df_bu_formatted[["사업부"] + [col for col in df_bu_formatted.columns if col != "사업부"]]  # 사업부 맨 앞으로
+        df_bu_formatted = df_bu_formatted[["사업부"] + [col for col in df_bu_formatted.columns if col != "사업부"]]
         st.dataframe(df_bu_formatted.style.hide(axis="index").apply(
             lambda x: ['background-color: #fde2e2' if h else '' for h in (df_bu_formatted["사업부"] == "합계")], axis=0
         ))
 
     st.markdown("---")
     st.markdown("### 2. 사이트별 매출 (사업부 / 유형 기준)")
+    selected_site = None
     for bu in sorted(updated_df["사업부"].dropna().unique()):
         st.markdown(f"**▶ 사업부: {bu}**")
         df_filtered = updated_df[updated_df["사업부"] == bu]
         df_site = df_filtered.groupby(["유형", "사이트", "기준일"])["매출"].sum().unstack(fill_value=0).reset_index()
         df_site.columns.name = None
-        df_site_formatted = format_table_with_summary(df_site, None)
+
+        summary_rows = []
+        for group, group_df in df_site.groupby("유형"):
+            group_sum = group_df.drop(columns=["유형", "사이트"]).sum()
+            summary_row = {"유형": group, "사이트": f"{group} 소계"}
+            summary_row.update(group_sum)
+            summary_rows.append(summary_row)
+            summary_rows.extend(group_df.to_dict("records"))
+        df_site_expanded = pd.DataFrame(summary_rows)
+
+        df_site_formatted = format_table_with_summary(df_site_expanded, None)
         if not df_site_formatted.empty:
             df_site_formatted.insert(0, "사이트", df_site_formatted.pop("사이트"))
             df_site_formatted.insert(0, "유형", df_site_formatted.pop("유형"))
@@ -139,36 +144,26 @@ if not updated_df.empty:
                 else:
                     last_type = df_site_formatted.loc[i, "유형"]
 
+            selected_site = st.radio("사이트 선택", [""] + df_site_formatted["사이트"].dropna().unique().tolist(), key=bu)
             st.dataframe(df_site_formatted.style.hide(axis="index").apply(
-                lambda x: ['background-color: #fde2e2' if h else '' for h in (df_site_formatted["사이트"] == "합계")], axis=0
+                lambda x: ['background-color: #fde2e2' if "소계" in str(x["사이트"]) or x["사이트"] == "합계" else '' for _ in x], axis=1
             ))
         st.markdown("---")
 
     st.markdown("---")
     st.markdown("### 3. 브랜드별 매출")
 
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        selected_bu = st.selectbox("사업부 선택 (브랜드 분석)", [""] + sorted(updated_df["사업부"].dropna().unique().tolist()))
-    with col2:
-        selected_type = st.selectbox("유형 선택 (선택사항)", [""] + sorted(updated_df["유형"].dropna().unique().tolist()))
-    with col3:
-        selected_site = st.selectbox("사이트 선택 (선택사항)", [""] + sorted(updated_df["사이트"].dropna().unique().tolist()))
-
-    filtered = updated_df.copy()
-    if selected_bu:
-        filtered = filtered[filtered["사업부"] == selected_bu]
-    if selected_type:
-        filtered = filtered[filtered["유형"] == selected_type]
     if selected_site:
-        filtered = filtered[filtered["사이트"] == selected_site]
-
-    if not filtered.empty:
-        df_brand = filtered.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
-        df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
-        if not df_brand_formatted.empty:
-            st.dataframe(df_brand_formatted.style.hide(axis="index").apply(
-                lambda x: ['background-color: #fde2e2' if h else '' for h in (df_brand_formatted["사이트/브랜드"] == "합계")], axis=0
-            ))
+        st.markdown(f"**▶ 선택된 사이트: {selected_site}**")
+        filtered = updated_df[updated_df["사이트"] == selected_site]
+        if not filtered.empty:
+            df_brand = filtered.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
+            df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
+            if not df_brand_formatted.empty:
+                st.dataframe(df_brand_formatted.style.hide(axis="index").apply(
+                    lambda x: ['background-color: #fde2e2' if h else '' for h in (df_brand_formatted["사이트/브랜드"] == "합계")], axis=0
+                ))
+    else:
+        st.markdown("_사이트를 선택하면 브랜드별 매출이 표시됩니다._")
 else:
     st.warning("저장된 데이터가 없습니다. 엑셀 파일을 업로드해주세요.")
