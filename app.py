@@ -3,20 +3,30 @@ import pandas as pd
 import os
 from datetime import datetime
 
-DATA_FILE = os.path.expanduser("~/.streamlit/saved_data.csv")
+MONTHLY_FILE = os.path.expanduser("~/.streamlit/saved_monthly.csv")
+
+def is_month_based(columns):
+    import re
+    date_cols = [col for col in columns if re.match(r'^\d{4}-\d{2}(-\d{2})?$', str(col))]
+    if not date_cols:
+        return False
+    sample = pd.to_datetime(date_cols, errors='coerce')
+    day_parts = sample.dt.day.dropna()
+    return day_parts.nunique() == 1 and day_parts.iloc[0] == 1
+
+def load_data(file_path):
+    if os.path.exists(file_path):
+        return pd.read_csv(file_path)
+    return None
+
+def save_data(df, file_path):
+    df.to_csv(file_path, index=False)
+
 
 def format_number(n):
     if pd.isna(n):
         return ""
     return f"{int(n):,}".rjust(15)
-
-def load_data():
-    if os.path.exists(DATA_FILE):
-        return pd.read_csv(DATA_FILE)
-    return None
-
-def save_data(df):
-    df.to_csv(DATA_FILE, index=False)
 
 def merge_data(old_df, new_df):
     id_cols = ['사업부', '유형', '사이트', '브랜드']
@@ -43,7 +53,8 @@ st.title("📊 OTD SALES")
 
 user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
 view_mode = st.sidebar.selectbox("분석 기준 선택", ["월별", "일별"])
-existing_data = load_data()
+# 기존 업로드 여부 확인용 (일자 파일 기준)
+existing_data = load_data(os.path.expanduser("~/.streamlit/saved_daily.csv"))
 if existing_data is not None:
     st.sidebar.caption(f"📁 저장된 파일 있음: {DATA_FILE.split('/')[-1]}")
 
@@ -55,9 +66,15 @@ if user_type == "관리자":
         if uploaded_file:
             uploaded_filename = uploaded_file.name
             new_df = pd.read_excel(uploaded_file)
-            old_df = load_data()
-            merged_df = merge_data(old_df, new_df)
-            save_data(merged_df)
+            if is_month_based(new_df.columns):
+                old_df = load_data(MONTHLY_FILE)
+                merged_df = merge_data(old_df, new_df)
+                save_data(merged_df, MONTHLY_FILE)
+            else:
+                old_df = load_data(os.path.expanduser("~/.streamlit/saved_daily.csv"))
+                merged_df = merge_data(old_df, new_df)
+                save_data(merged_df, os.path.expanduser("~/.streamlit/saved_daily.csv"))
+
             st.success("데이터가 성공적으로 저장되었습니다.")
             st.sidebar.caption(f"✅ 업로드된 파일: {uploaded_filename}")
     else:
@@ -65,7 +82,24 @@ if user_type == "관리자":
 else:
     uploaded_file = None
 
-data = load_data()
+daily_data = load_data(os.path.expanduser("~/.streamlit/saved_daily.csv"))
+monthly_data = load_data(MONTHLY_FILE)
+
+if view_mode == "월별":
+    if monthly_data is not None:
+        data = monthly_data.copy()
+        if daily_data is not None:
+            for _, row in daily_data.iterrows():
+                key = tuple(row[col] for col in ['사업부', '유형', '사이트', '브랜드'])
+                if not ((data[['사업부', '유형', '사이트', '브랜드']] == key).all(axis=1)).any():
+                    data = pd.concat([data, pd.DataFrame([row])], ignore_index=True)
+    elif daily_data is not None:
+        data = daily_data.copy()
+    else:
+        data = None
+else:
+    data = daily_data
+
 if data is None:
     st.info("데이터가 없습니다. 관리자만 업로드할 수 있습니다.")
     st.stop()
