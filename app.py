@@ -25,6 +25,14 @@ def save_data(df):
 def merge_data(old_df, new_df):
     if old_df is None:
         return new_df
+
+    # ID 컬럼 체크
+    id_cols = ['사업부', '구분', '사이트', '브랜드']
+    for col in id_cols:
+        if col not in old_df.columns or col not in new_df.columns:
+            st.error(f"병합할 수 없습니다. 누락된 컬럼: {col}")
+            st.stop()
+
     merged = old_df.copy()
     for _, row in new_df.iterrows():
         mask = (
