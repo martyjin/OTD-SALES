@@ -3,7 +3,8 @@ import pandas as pd
 import os
 from datetime import datetime
 
-DATA_FILE = "saved_data.csv"
+# Streamlit Cloud에서도 유지되는 경로로 저장
+DATA_FILE = os.path.expanduser("~/.streamlit/saved_data.csv")
 
 # 숫자 포맷 함수
 def format_number(n):
