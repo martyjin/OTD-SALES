@@ -24,18 +24,13 @@ def save_data(df):
 
 # 데이터 병합 함수
 def merge_data(old_df, new_df):
-    if '구분' not in new_df.columns:
-        new_df['구분'] = '미지정'
-    if old_df is not None and '구분' not in old_df.columns:
-        old_df['구분'] = '미지정'
-
-    id_cols = ['사업부', '구분', '사이트', '브랜드']
+    id_cols = ['사업부', '유형', '사이트', '브랜드']
     merged = old_df.copy() if old_df is not None else pd.DataFrame(columns=new_df.columns)
 
     for _, row in new_df.iterrows():
         mask = (
             (merged['사업부'] == row['사업부']) &
-            (merged['구분'] == row['구분']) &
+            (merged['유형'] == row['유형']) &
             (merged['사이트'] == row['사이트']) &
             (merged['브랜드'] == row['브랜드'])
         ) if not merged.empty else pd.Series([False] * len(merged))
@@ -88,11 +83,7 @@ if data is None:
     st.info("데이터가 없습니다. 관리자만 업로드할 수 있습니다.")
     st.stop()
 
-# ID 컬럼 보완
-if '구분' not in data.columns:
-    data['구분'] = '미지정'
-
-required_columns = ['사업부', '구분', '사이트', '브랜드']
+required_columns = ['사업부', '유형', '사이트', '브랜드']
 value_columns = [col for col in data.columns if col not in required_columns]
 
 # Melt
@@ -111,32 +102,38 @@ else:
 def style_summary(df):
     return df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name != '합계' else 'background-color: #e6f0ff'] * len(x), axis=1)
 
-# 사업부별 매출
+# 1️⃣ 사업부별 매출
 summary = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
 summary_pivot = summary.pivot(index='사업부', columns='기준', values='매출').fillna(0).astype(int)
 summary_pivot.loc['합계'] = summary_pivot.sum()
 st.subheader("1️⃣ 사업부별 매출")
 st.dataframe(style_summary(summary_pivot.applymap(format_number)), use_container_width=True)
 
-# 사이트별 매출
-summary_site = data_melted.groupby(['기준', '사이트'])['매출'].sum().reset_index()
-site_pivot = summary_site.pivot(index='사이트', columns='기준', values='매출').fillna(0).astype(int)
-site_pivot.loc['합계'] = site_pivot.sum()
+# 2️⃣ 사이트별 매출 (유형 포함, 중복 제거)
 st.subheader("2️⃣ 사이트별 매출")
-st.dataframe(style_summary(site_pivot.applymap(format_number)), use_container_width=True)
+site_grouped = data_melted.groupby(['기준', '유형', '사이트'])['매출'].sum().reset_index()
+site_pivot = site_grouped.pivot(index=['유형', '사이트'], columns='기준', values='매출').fillna(0).astype(int)
+site_pivot.loc[('합계', '')] = site_pivot.sum()
+site_pivot = site_pivot.reset_index()
 
-# 브랜드별 매출 (선택 필터)
+# 병합된 셀처럼 중복값 생략을 위해 표시용 컬럼 정리
+site_pivot['유형 표시'] = site_pivot['유형'].mask(site_pivot['유형'] == site_pivot['유형'].shift())
+site_pivot_display = site_pivot.drop(columns=['유형'])
+site_pivot_display = site_pivot_display.rename(columns={'유형 표시': '유형'})
+st.dataframe(style_summary(site_pivot_display.set_index(['유형', '사이트']).applymap(format_number).reset_index()), use_container_width=True)
+
+# 3️⃣ 브랜드별 매출 (필터 포함)
 st.subheader("3️⃣ 브랜드별 매출")
 col1, col2, col3 = st.columns(3)
 with col1:
     selected_dept = st.selectbox("사업부 선택", sorted(data_melted['사업부'].unique()))
 with col2:
-    selected_type = st.selectbox("구분 선택", sorted(data_melted['구분'].unique()))
+    selected_type = st.selectbox("유형 선택", sorted(data_melted['유형'].unique()))
 with col3:
     selected_site = st.selectbox("사이트 선택", sorted(data_melted['사이트'].unique()))
 
 filtered = data_melted[(data_melted['사업부'] == selected_dept) &
-                       (data_melted['구분'] == selected_type) &
+                       (data_melted['유형'] == selected_type) &
                        (data_melted['사이트'] == selected_site)]
 
 brand_summary = filtered.groupby(['기준', '브랜드'])['매출'].sum().reset_index()
