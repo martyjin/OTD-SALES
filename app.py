@@ -150,6 +150,7 @@ else:
 st.subheader("📈 매출 추이 그래프")
 
 # 사업부별 전체 매출 추이 라인그래프
+trend_by_dept = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
 filtered_trend_by_dept = trend_by_dept[trend_by_dept['사업부'] != '타분류']
 for dept in sorted(filtered_trend_by_dept['사업부'].unique()):
     st.markdown(f"#### 📊 {dept} 매출 추이")
