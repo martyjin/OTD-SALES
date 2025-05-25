@@ -114,9 +114,9 @@ if not updated_df.empty:
     df_bu = df_bu.loc[(df_bu != 0).any(axis=1)]
     df_bu_formatted = format_table_with_summary(df_bu.reset_index(), "사업부")
     if not df_bu_formatted.empty:
-        highlight = df_bu_formatted["사업부"] == "합계"
-        st.dataframe(df_bu_formatted.style.apply(
-            lambda x: ['background-color: #fde2e2' if h else '' for h in highlight], axis=0
+        df_bu_formatted = df_bu_formatted[["사업부"] + [col for col in df_bu_formatted.columns if col != "사업부"]]  # 사업부 맨 앞으로
+        st.dataframe(df_bu_formatted.style.hide(axis="index").apply(
+            lambda x: ['background-color: #fde2e2' if h else '' for h in (df_bu_formatted["사업부"] == "합계")], axis=0
         ))
 
     st.markdown("---")
@@ -131,9 +131,16 @@ if not updated_df.empty:
             df_site_formatted.insert(0, "사이트", df_site_formatted.pop("사이트"))
             df_site_formatted.insert(0, "유형", df_site_formatted.pop("유형"))
             df_site_formatted.columns = ["유형", "사이트"] + df_site_formatted.columns[2:].tolist()
-            highlight = df_site_formatted["사이트"] == "합계"
-            st.dataframe(df_site_formatted.style.apply(
-                lambda x: ['background-color: #fde2e2' if h else '' for h in highlight], axis=0
+
+            last_type = None
+            for i in range(len(df_site_formatted)):
+                if df_site_formatted.loc[i, "유형"] == last_type:
+                    df_site_formatted.loc[i, "유형"] = ""
+                else:
+                    last_type = df_site_formatted.loc[i, "유형"]
+
+            st.dataframe(df_site_formatted.style.hide(axis="index").apply(
+                lambda x: ['background-color: #fde2e2' if h else '' for h in (df_site_formatted["사이트"] == "합계")], axis=0
             ))
         st.markdown("---")
 
@@ -160,9 +167,8 @@ if not updated_df.empty:
         df_brand = filtered.groupby(["사이트", "브랜드", "기준일"])["매출"].sum().unstack(fill_value=0)
         df_brand_formatted = format_table_with_summary(df_brand, "사이트/브랜드")
         if not df_brand_formatted.empty:
-            highlight = df_brand_formatted["사이트/브랜드"] == "합계"
-            st.dataframe(df_brand_formatted.style.apply(
-                lambda x: ['background-color: #fde2e2' if h else '' for h in highlight], axis=0
+            st.dataframe(df_brand_formatted.style.hide(axis="index").apply(
+                lambda x: ['background-color: #fde2e2' if h else '' for h in (df_brand_formatted["사이트/브랜드"] == "합계")], axis=0
             ))
 else:
     st.warning("저장된 데이터가 없습니다. 엑셀 파일을 업로드해주세요.")
