@@ -111,11 +111,25 @@ if daily_data is None and monthly_data is None:
     st.info("데이터가 없습니다. 관리자만 업로드할 수 있습니다.")
     st.stop()
 
-data = monthly_data.copy() if monthly_data is not None else daily_data.copy()
+data = monthly_data.copy() if monthly_data is not None else pd.DataFrame()
 
 required_columns = ['사업부', '유형', '사이트', '브랜드']
 value_columns = [col for col in data.columns if col not in required_columns]
-data_melted = data.melt(id_vars=required_columns, value_vars=value_columns, var_name="일자", value_name="매출")
+if data.empty and daily_data is not None:
+    data = daily_data.copy()
+    data_melted = data.melt(id_vars=required_columns, value_vars=value_columns, var_name="일자", value_name="매출")
+    data_melted['일자'] = pd.to_datetime(data_melted['일자'], errors='coerce')
+    data_melted.dropna(subset=['일자'], inplace=True)
+    data_melted['매출'] = pd.to_numeric(data_melted['매출'], errors='coerce').fillna(0)
+    data_melted['기준'] = data_melted['일자'].dt.to_period("M").astype(str)
+    data_melted = data_melted[data_melted['기준'] >= '2025-01']
+else:
+    data_melted = data.melt(id_vars=required_columns, value_vars=value_columns, var_name="일자", value_name="매출")
+    data_melted['일자'] = pd.to_datetime(data_melted['일자'], errors='coerce')
+    data_melted.dropna(subset=['일자'], inplace=True)
+    data_melted['매출'] = pd.to_numeric(data_melted['매출'], errors='coerce').fillna(0)
+    data_melted['기준'] = data_melted['일자'].dt.to_period("M").astype(str)
+    data_melted = data_melted[data_melted['기준'] >= '2025-01']
 data_melted['일자'] = pd.to_datetime(data_melted['일자'], errors='coerce')
 data_melted.dropna(subset=['일자'], inplace=True)
 data_melted['매출'] = pd.to_numeric(data_melted['매출'], errors='coerce').fillna(0)
