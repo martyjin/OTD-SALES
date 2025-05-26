@@ -169,6 +169,7 @@ st.dataframe(style_summary(sum_dept).set_properties(**{'text-align': 'right'}), 
 
 # 2️⃣ 사이트별 매출
 st.subheader("2️⃣ 사이트별 매출")
+sum_site = data_melted.groupby(['기준', '사이트'])['매출'].sum().reset_index()
 sum_site = add_yoy_column(sum_site, ['사이트'])
 sum_site = sum_site.pivot(index='사이트', columns='기준', values=['매출', '전년비'])
 sum_site.columns = [f"{col[1]} {'전년비' if col[0] == '전년비' else ''}".strip() for col in sum_site.columns]
@@ -234,9 +235,11 @@ else:
     sum_brand = sum_brand.applymap(format_number)
 
 if not sum_brand.empty:
-    total = pd.DataFrame(pivot.sum()).T; total.index = ['합계']
-    pivot = pd.concat([total, pivot])
-    st.dataframe(style_summary(pivot.applymap(format_number)).set_properties(**{'text-align': 'right'}), use_container_width=True, height=500)
+    total = pd.DataFrame(sum_brand.apply(lambda s: s.map(safe_str_to_int)).sum()).T
+    total.index = ['합계']
+    total = total.applymap(lambda x: format_number(x))
+    sum_brand = pd.concat([total, sum_brand])
+    st.dataframe(style_summary(sum_brand).set_properties(**{'text-align': 'right'}), use_container_width=True, height=500)
 else:
     st.info("해당 조건에 맞는 브랜드 매출 데이터가 없습니다.")
 
