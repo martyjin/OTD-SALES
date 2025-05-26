@@ -55,6 +55,15 @@ def format_number(n):
     except:
         return str(n)
 
+def safe_str_to_int(x):
+    try:
+        x = str(x).replace(',', '').strip()
+        if '%' in x or x == '' or x == '-':
+            return 0
+        return int(float(x))
+    except:
+        return 0
+
 def style_summary(df):
     return df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name != '합계' and '[' in str(x.name) else 'background-color: #e6f0ff' if x.name == '합계' else ''] * len(x), axis=1)
 
@@ -150,7 +159,7 @@ sum_dept.reset_index(inplace=True)
 sum_dept.set_index('사업부', inplace=True)
 sum_dept = sum_dept.astype(str)
 sum_dept = sum_dept.applymap(lambda x: x if '%' in x else format_number(x))
-total = pd.DataFrame(sum_dept.apply(lambda s: s.map(lambda x: int(x.replace(',', '').strip()) if '%' not in x and x.strip() else 0)).sum()).T
+total = pd.DataFrame(sum_dept.apply(lambda s: s.map(safe_str_to_int)).sum()).T
 total.index = ['합계']
 total = total.applymap(lambda x: format_number(x))
 sum_dept = pd.concat([total, sum_dept])
