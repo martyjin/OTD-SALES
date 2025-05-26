@@ -111,7 +111,7 @@ if daily_data is None and monthly_data is None:
     st.info("데이터가 없습니다. 관리자만 업로드할 수 있습니다.")
     st.stop()
 
-view_mode = st.selectbox("분석 기준 선택", ["월별", "일별"])
+# 제거됨: 브랜드별 섹션 내부로 이동
 data = monthly_data.copy() if view_mode == "월별" and monthly_data is not None else daily_data.copy()
 
 required_columns = ['사업부', '유형', '사이트', '브랜드']
@@ -157,6 +157,7 @@ for dept in sorted(sum_site['사업부'].unique()):
 
 # 3️⃣ 브랜드별 매출
 st.subheader("3️⃣ 브랜드별 매출")
+view_mode = st.selectbox("분석 기준 선택", ["월별", "일별"])
 col1, col2, col3 = st.columns(3)
 with col1:
     selected_dept = st.selectbox("사업부 선택", sorted(data_melted['사업부'].unique()))
