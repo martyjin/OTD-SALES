@@ -140,6 +140,19 @@ data_melted = data_melted[data_melted['기준'] >= '2025-01']
 st.subheader("1️⃣ 사업부별 매출")
 sum_dept = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
 sum_dept = add_yoy_column(sum_dept, ['사업부'])
+# 매출과 전년비를 교차로 표시
+sum_dept = sum_dept.pivot(index='사업부', columns='기준', values=['매출', '전년비'])
+# 컬럼 정렬: 2025-01 매출, 2025-01 전년비, 2025-02 매출, ...
+sum_dept.columns = [f"{col[1]} {'전년비' if col[0] == '전년비' else ''}".strip() for col in sum_dept.columns]
+sum_dept = sum_dept.fillna(0)
+sum_dept.reset_index(inplace=True)
+sum_dept.set_index('사업부', inplace=True)
+sum_dept = sum_dept.astype(str)
+sum_dept = sum_dept.applymap(lambda x: x if '%' in x else format_number(x))
+total = pd.DataFrame(sum_dept.apply(lambda s: s.map(lambda x: int(x.replace(',', '').strip()) if '%' not in x and x.strip() else 0)).sum()).T
+total.index = ['합계']
+total = total.applymap(lambda x: format_number(x))
+sum_dept = pd.concat([total, sum_dept])
 pivot = sum_dept.pivot(index='사업부', columns='기준', values='매출').fillna(0).astype(int)
 total = pd.DataFrame(pivot.sum()).T; total.index = ['합계']
 pivot = pd.concat([total, pivot])
@@ -147,8 +160,22 @@ st.dataframe(style_summary(pivot.applymap(format_number)).set_properties(**{'tex
 
 # 2️⃣ 사이트별 매출
 st.subheader("2️⃣ 사이트별 매출")
-sum_site = data_melted.groupby(['기준', '사업부', '유형', '사이트'])['매출'].sum().reset_index()
-for dept in sorted(sum_site['사업부'].unique()):
+sum_site = add_yoy_column(sum_site, ['사이트'])
+sum_site = sum_site.pivot(index='사이트', columns='기준', values=['매출', '전년비'])
+sum_site.columns = [f"{col[1]} {'전년비' if col[0] == '전년비' else ''}".strip() for col in sum_site.columns]
+sum_site = sum_site.fillna(0)
+sum_site.reset_index(inplace=True)
+sum_site.set_index('사이트', inplace=True)
+sum_site = sum_site.astype(str)
+sum_site = sum_site.applymap(lambda x: x if '%' in x else format_number(x))
+total = pd.DataFrame(sum_site.apply(lambda s: s.map(lambda x: int(x.replace(',', '').strip()) if '%' not in x and x.strip() else 0)).sum()).T
+total.index = ['합계']
+total = total.applymap(lambda x: format_number(x))
+sum_site = pd.concat([total, sum_site])
+st.dataframe(style_summary(sum_site).set_properties(**{'text-align': 'right'}), use_container_width=True)
+
+# 브랜드별 매출 이하 유지
+for dept in sorted(sum_site.reset_index()['사업부'].unique()):
     st.markdown(f"### 📍 {dept} 사업부")
     sub_data = sum_site[sum_site['사업부'] == dept].copy()
     df_list = []
@@ -187,8 +214,17 @@ filtered = data_melted[
 
 sum_brand = filtered.groupby(['기준', '브랜드'])['매출'].sum().reset_index()
 sum_brand = add_yoy_column(sum_brand, ['브랜드']) if view_mode == "월별" else sum_brand
-pivot = sum_brand.pivot(index='브랜드', columns='기준', values='매출').fillna(0).astype(int)
-if not pivot.empty:
+if view_mode == "월별":
+    sum_brand = sum_brand.pivot(index='브랜드', columns='기준', values=['매출', '전년비'])
+    sum_brand.columns = [f"{col[1]} {'전년비' if col[0] == '전년비' else ''}".strip() for col in sum_brand.columns]
+    sum_brand = sum_brand.fillna(0)
+    sum_brand = sum_brand.astype(str)
+    sum_brand = sum_brand.applymap(lambda x: x if '%' in x else format_number(x))
+else:
+    sum_brand = sum_brand.pivot(index='브랜드', columns='기준', values='매출').fillna(0).astype(int)
+    sum_brand = sum_brand.applymap(format_number)
+
+if not sum_brand.empty:
     total = pd.DataFrame(pivot.sum()).T; total.index = ['합계']
     pivot = pd.concat([total, pivot])
     st.dataframe(style_summary(pivot.applymap(format_number)).set_properties(**{'text-align': 'right'}), use_container_width=True, height=500)
