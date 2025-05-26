@@ -50,9 +50,10 @@ def merge_data(old_df, new_df):
     return merged
 
 def format_number(n):
-    if pd.isna(n):
-        return ""
-    return f"{int(n):,}".rjust(15)
+    try:
+        return f"{int(float(n)):,}".rjust(15)
+    except:
+        return str(n)
 
 def style_summary(df):
     return df.style.apply(lambda x: ['background-color: #ffe6ea' if x.name != '합계' and '[' in str(x.name) else 'background-color: #e6f0ff' if x.name == '합계' else ''] * len(x), axis=1)
