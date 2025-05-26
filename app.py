@@ -72,7 +72,7 @@ def add_yoy_column(df, group_cols):
 # UI
 st.title("📊 OTD SALES")
 user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
-view_mode = None
+view_mode = "월별"  # 기본값: 전체 표는 항상 월 기준
 
 if user_type == "관리자":
     password = st.sidebar.text_input("비밀번호를 입력하세요", type="password")
@@ -139,7 +139,7 @@ data_melted = data_melted[data_melted['기준'] >= '2025-01']
 # 1️⃣ 사업부별 매출
 st.subheader("1️⃣ 사업부별 매출")
 sum_dept = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
-sum_dept = add_yoy_column(sum_dept, ['사업부']) if view_mode == "월별" else sum_dept
+sum_dept = add_yoy_column(sum_dept, ['사업부'])
 pivot = sum_dept.pivot(index='사업부', columns='기준', values='매출').fillna(0).astype(int)
 total = pd.DataFrame(pivot.sum()).T; total.index = ['합계']
 pivot = pd.concat([total, pivot])
