@@ -163,10 +163,9 @@ total = pd.DataFrame(sum_dept.apply(lambda s: s.map(safe_str_to_int)).sum()).T
 total.index = ['합계']
 total = total.applymap(lambda x: format_number(x))
 sum_dept = pd.concat([total, sum_dept])
-pivot = sum_dept.pivot(index='사업부', columns='기준', values='매출').fillna(0).astype(int)
-total = pd.DataFrame(pivot.sum()).T; total.index = ['합계']
-pivot = pd.concat([total, pivot])
-st.dataframe(style_summary(pivot.applymap(format_number)).set_properties(**{'text-align': 'right'}), use_container_width=True)
+# ⛔️ 중복 피벗 제거: 이미 sum_dept는 피벗된 상태이므로 이 줄 제거됨
+# ⛔️ 위 pivot 제거에 따라 합계도 중복 제거됨
+st.dataframe(style_summary(sum_dept).set_properties(**{'text-align': 'right'}), use_container_width=True)
 
 # 2️⃣ 사이트별 매출
 st.subheader("2️⃣ 사이트별 매출")
