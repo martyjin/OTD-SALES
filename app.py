@@ -158,33 +158,46 @@ st.dataframe(style_summary(sum_dept).set_properties(**{'text-align': 'right'}), 
 
 # 2️⃣ 사이트별 매출
 st.subheader("2️⃣ 사이트별 매출")
-sum_site = data_melted.groupby(['기준', '사이트'])['매출'].sum().reset_index()
-sum_site = add_yoy_column(sum_site, ['사이트'])
-sum_site = sum_site.pivot(index='사이트', columns='기준', values=['매출', '전년비'])
-sum_site.columns = [f"{col[1]} {'전년비' if col[0] == '전년비' else ''}".strip() for col in sum_site.columns]
-sum_site = sum_site.fillna(0)
-sum_site.reset_index(inplace=True)
-sum_site.set_index('사이트', inplace=True)
-sum_site = sum_site.astype(str)
-sum_site = sum_site.applymap(lambda x: x if '%' in x else format_number(x))
-def parse_sales_value(x):
-    try:
-        if isinstance(x, str):
-            x = x.replace(',', '').strip()
-            if '%' in x or x == '' or x == '-':
-                return 0
-            return int(float(x))
-        elif isinstance(x, (int, float)) and not pd.isna(x):
-            return int(x)
-    except:
-        return 0
-    return 0
 
-total = pd.DataFrame(sum_site.applymap(parse_sales_value).sum()).T
-total.index = ['합계']
-total = total.applymap(lambda x: format_number(x))
-sum_site = pd.concat([total, sum_site])
-st.dataframe(style_summary(sum_site).set_properties(**{'text-align': 'right'}), use_container_width=True)
+for dept in sorted(data_melted['사업부'].unique()):
+    st.markdown(f"### 📍 {dept} 사업부")
+    sub_data = data_melted[data_melted['사업부'] == dept].copy()
+    df_list = []
+    for t in sorted(sub_data['유형'].unique()):
+        df_u = sub_data[sub_data['유형'] == t].copy()
+        sum_site = df_u.groupby(['기준', '사이트'])['매출'].sum().reset_index()
+        sum_site = add_yoy_column(sum_site, ['사이트'])
+        sum_site = sum_site.pivot(index='사이트', columns='기준', values=['매출', '전년비'])
+        sum_site = sum_site.sort_index(axis=1, key=lambda x: x.str.replace(' 전년비', ''))
+        new_columns = []
+        for col in sorted(set(c.replace(' 전년비', '') for c in sum_site.columns.get_level_values(1))):
+            new_columns.append(('매출', col))
+            new_columns.append(('전년비', col))
+        sum_site = sum_site.reindex(columns=pd.MultiIndex.from_tuples(new_columns))
+        sum_site.columns = ["전년비" if col[0] == '전년비' else col[1] for col in sum_site.columns]
+        sum_site = sum_site.fillna(0)
+        sum_site.reset_index(inplace=True)
+        sum_site.set_index('사이트', inplace=True)
+        sum_site = sum_site.astype(str)
+        sum_site = sum_site.applymap(lambda x: x if '%' in x else format_number(x))
+        subtotal = pd.DataFrame(sum_site.applymap(parse_sales_value).sum()).T
+        subtotal.index = [f"[{t} 소계]"]
+        subtotal = subtotal.applymap(lambda x: format_number(x))
+        df_list.append(pd.concat([subtotal, sum_site]))
+
+    combined = pd.concat(df_list)
+    total_only = combined[~combined.index.str.startswith('[')]
+    total_sum = pd.DataFrame(total_only.applymap(parse_sales_value).sum()).T
+    total_sum.index = ['합계']
+    final_df = pd.concat([total_sum, combined])
+
+    styled = final_df.applymap(format_number).reset_index().rename(columns={'index': '사이트'})
+    styled = styled.style.apply(lambda x: [
+        'background-color: #e6f0ff' if x['사이트'] == '합계' else
+        'background-color: #ffe6ea' if '[' in x['사이트'] else ''
+    ] * len(x), axis=1)
+
+    st.dataframe(styled.set_properties(**{'text-align': 'right'}), use_container_width=True)
 
 # 3️⃣ 브랜드별 매출
 st.subheader("3️⃣ 브랜드별 매출")
