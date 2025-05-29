@@ -82,7 +82,7 @@ def add_yoy_column(df, group_cols):
 # UI
 st.title("📊 OTD SALES")
 user_type = st.sidebar.radio("접속 유형을 선택하세요:", ("일반 사용자", "관리자"))
-view_mode = "월별"  # 기본값: 전체 표는 항상 월 기준
+view_mode = "월별"
 
 if user_type == "관리자":
     password = st.sidebar.text_input("비밀번호를 입력하세요", type="password")
@@ -114,7 +114,6 @@ if user_type == "관리자":
 else:
     uploaded_file = None
 
-# 데이터 로딩
 daily_data = load_data(DAILY_FILE)
 monthly_data = load_data(MONTHLY_FILE)
 if daily_data is None and monthly_data is None:
@@ -122,7 +121,6 @@ if daily_data is None and monthly_data is None:
     st.stop()
 
 data = monthly_data.copy() if monthly_data is not None else pd.DataFrame()
-
 required_columns = ['사업부', '유형', '사이트', '브랜드']
 value_columns = [col for col in data.columns if col not in required_columns]
 if data.empty and daily_data is not None:
@@ -140,19 +138,12 @@ else:
     data_melted['매출'] = pd.to_numeric(data_melted['매출'], errors='coerce').fillna(0)
     data_melted['기준'] = data_melted['일자'].dt.to_period("M").astype(str)
     data_melted = data_melted[data_melted['기준'] >= '2025-01']
-data_melted['일자'] = pd.to_datetime(data_melted['일자'], errors='coerce')
-data_melted.dropna(subset=['일자'], inplace=True)
-data_melted['매출'] = pd.to_numeric(data_melted['매출'], errors='coerce').fillna(0)
-data_melted['기준'] = data_melted['일자'].dt.to_period("M").astype(str)
-data_melted = data_melted[data_melted['기준'] >= '2025-01']
 
 # 1️⃣ 사업부별 매출
 st.subheader("1️⃣ 사업부별 매출")
 sum_dept = data_melted.groupby(['기준', '사업부'])['매출'].sum().reset_index()
 sum_dept = add_yoy_column(sum_dept, ['사업부'])
-# 매출과 전년비를 교차로 표시
 sum_dept = sum_dept.pivot(index='사업부', columns='기준', values=['매출', '전년비'])
-# 컬럼 정렬: 2025-01 매출, 2025-01 전년비, 2025-02 매출, ...
 sum_dept.columns = [f"{col[1]} {'전년비' if col[0] == '전년비' else ''}".strip() for col in sum_dept.columns]
 sum_dept = sum_dept.fillna(0)
 sum_dept.reset_index(inplace=True)
@@ -163,8 +154,6 @@ total = pd.DataFrame(sum_dept.apply(lambda s: s.map(safe_str_to_int)).sum()).T
 total.index = ['합계']
 total = total.applymap(lambda x: format_number(x))
 sum_dept = pd.concat([total, sum_dept])
-# ⛔️ 중복 피벗 제거: 이미 sum_dept는 피벗된 상태이므로 이 줄 제거됨
-# ⛔️ 위 pivot 제거에 따라 합계도 중복 제거됨
 st.dataframe(style_summary(sum_dept).set_properties(**{'text-align': 'right'}), use_container_width=True)
 
 # 2️⃣ 사이트별 매출
@@ -178,32 +167,11 @@ sum_site.reset_index(inplace=True)
 sum_site.set_index('사이트', inplace=True)
 sum_site = sum_site.astype(str)
 sum_site = sum_site.applymap(lambda x: x if '%' in x else format_number(x))
-total = pd.DataFrame(sum_site.apply(lambda s: s.map(lambda x: int(x.replace(',', '').strip()) if '%' not in x and x.strip() else 0)).sum()).T
+total = pd.DataFrame(sum_site.apply(lambda s: s.map(lambda x: int(str(x).replace(',', '').strip()) if '%' not in x and x.strip() else 0)).sum()).T
 total.index = ['합계']
 total = total.applymap(lambda x: format_number(x))
 sum_site = pd.concat([total, sum_site])
 st.dataframe(style_summary(sum_site).set_properties(**{'text-align': 'right'}), use_container_width=True)
-
-# 브랜드별 매출 이하 유지
-for dept in sorted(sum_site.reset_index()['사업부'].unique()):
-    st.markdown(f"### 📍 {dept} 사업부")
-    sub_data = sum_site[sum_site['사업부'] == dept].copy()
-    df_list = []
-    for t in sub_data['유형'].unique():
-        df_u = sub_data[sub_data['유형'] == t].copy()
-        pivot = df_u.pivot(index='사이트', columns='기준', values='매출').fillna(0).astype(int)
-        subtotal = pd.DataFrame(pivot.sum()).T; subtotal.index = [f"[{t} 소계]"]
-        df_list.append(pd.concat([subtotal, pivot]))
-    combined = pd.concat(df_list)
-    total_only = combined[~combined.index.str.startswith('[')]
-    total_sum = pd.DataFrame(total_only.sum()).T; total_sum.index = ['합계']
-    final_df = pd.concat([total_sum, combined])
-    styled = final_df.applymap(format_number).reset_index().rename(columns={'index': '사이트'})
-    styled = styled.style.apply(lambda x: [
-        'background-color: #e6f0ff' if x['사이트'] == '합계' else
-        'background-color: #ffe6ea' if '[' in x['사이트'] else ''
-    ] * len(x), axis=1)
-    st.dataframe(styled.set_properties(**{'text-align': 'right'}), use_container_width=True)
 
 # 3️⃣ 브랜드별 매출
 st.subheader("3️⃣ 브랜드별 매출")
