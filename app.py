@@ -167,7 +167,17 @@ sum_site.reset_index(inplace=True)
 sum_site.set_index('사이트', inplace=True)
 sum_site = sum_site.astype(str)
 sum_site = sum_site.applymap(lambda x: x if '%' in x else format_number(x))
-total = pd.DataFrame(sum_site.apply(lambda s: s.map(lambda x: int(str(x).replace(',', '').strip()) if '%' not in x and x.strip() else 0)).sum()).T
+total = pd.DataFrame(
+    sum_site.apply(
+        lambda s: s.map(
+            lambda x: (
+                int(str(x).replace(',', '').strip())
+                if isinstance(x, str) and '%' not in x and x.strip()
+                else (int(x) if isinstance(x, (int, float)) and not pd.isna(x) else 0)
+            )
+        )
+    ).sum()
+).T
 total.index = ['합계']
 total = total.applymap(lambda x: format_number(x))
 sum_site = pd.concat([total, sum_site])
