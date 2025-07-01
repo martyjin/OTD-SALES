@@ -61,18 +61,20 @@ def monthly_wide_table(df: pd.DataFrame, months: list[str] | None = None) -> pd.
         pd.MultiIndex.from_product([div_tot.index, [""]], names=["division", "site"])
     )
 
-    # 병합
-    result = pd.concat([total_row, div_tot, pivoted]).reset_index()
+    # 병합 후 reset_index (컬럼 중복 충돌 방지)
+    combined = pd.concat([total_row, div_tot, pivoted])
+    combined = combined.reset_index()  # 'division','site'가 이미 없으므로 안전
 
     # 월 컬럼 순서 & 필터
     if months:
-        month_cols = [m for m in months if m in result.columns]
-        result = result[["division", "site"] + month_cols]
+        month_cols = [m for m in months if m in combined.columns]
+        combined = combined[["division", "site"] + month_cols]
 
-    return result
+    return combined
 
 # ────────────────────── 테이블 스타일 ──────────────────────
 def style_table(df: pd.DataFrame) -> pd.io.formats.style.Styler:
+    """합계·소계 행을 연한 핑크, 숫자 천단위 콤마"""
     return (
         df.style
           .apply(
