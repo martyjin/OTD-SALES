@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-# ────────────────── 기본 설정 ──────────────────
 st.set_page_config(page_title="OTD 누적 전년비 대시보드", layout="wide")
 
-# ────────────────── 전처리 함수 ──────────────────
+# ────────── 데이터 전처리 ──────────
 @st.cache_data
 def preprocess(file) -> pd.DataFrame:
     df = pd.read_excel(file, sheet_name="DATA")
@@ -16,11 +15,11 @@ def preprocess(file) -> pd.DataFrame:
                        "매장": "brand", "일자": "date",
                        "매출": "sales"}, inplace=True)
 
-    meta_cols = ["division", "site", "brand"]
-    df = df.melt(id_vars=meta_cols, var_name="date", value_name="sales")
+    meta = ["division", "site", "brand"]
+    df = df.melt(id_vars=meta, var_name="date", value_name="sales")
 
     df["sales"] = pd.to_numeric(df["sales"], errors="coerce")
-    df = df.dropna(subset=["sales"])
+    df.dropna(subset=["sales"], inplace=True)
     df["sales"] = df["sales"].astype(int)
 
     df["date"]  = pd.to_datetime(df["date"])
@@ -30,7 +29,7 @@ def preprocess(file) -> pd.DataFrame:
     df["day"]   = df["date"].dt.day
     return df
 
-# ────────────────── 파일 업로드 ──────────────────
+# ────────── 파일 업로드 ──────────
 upl = st.sidebar.file_uploader("📂 일자별 매출 엑셀", type=["xlsx"])
 if upl is None:
     st.warning("엑셀 파일을 업로드해 주세요.")
@@ -38,7 +37,7 @@ if upl is None:
 
 df_raw = preprocess(upl)
 
-# ────────────────── 필터 UI ──────────────────
+# ────────── 필터 ──────────
 st.title("📊 매장별 누적 전년비 대시보드")
 with st.expander("🔎 필터", expanded=True):
     c1, c2, c3 = st.columns(3)
@@ -56,12 +55,11 @@ cur_year  = int(sel_month[:4])
 cur_month = int(sel_month[-2:])
 prev_year = cur_year - 1
 
-# ────────────────── 매장별 누적 계산 ──────────────────
+# ────────── 매장별 누적 계산 ──────────
 def calc(grp: pd.DataFrame) -> pd.Series:
-    # 당월 0이 아닌 매출
     this_m = grp[(grp["year"] == cur_year) & (grp["month"] == cur_month) & (grp["sales"] > 0)]
     if this_m.empty:
-        return pd.Series(dtype="float64")  # 반환 값 없음 -> 이후 필터링
+        return pd.Series(dtype="float64")
 
     cutoff = this_m["day"].max()
 
@@ -91,19 +89,21 @@ def calc(grp: pd.DataFrame) -> pd.Series:
 
 result_raw = df.groupby(["division", "site", "brand"]).apply(calc)
 
-# ▶ apply 결과가 Series일 경우 to_frame → 표준화
-if isinstance(result_raw, pd.Series):
-    result_raw = result_raw.to_frame().T
+# ▶ Series vs DataFrame 안전 변환
+if isinstance(result_raw, pd.Series):       # Series → DataFrame
+    result_df = result_raw.to_frame().T
+else:
+    result_df = result_raw
 
-result_df = result_raw.reset_index(drop=True)
+result_df = result_df.reset_index(drop=True)
 
-# ────────────────── 데이터 존재 검사 ──────────────────
-required_col = f"{cur_year} 당월누적"
-if result_df.empty or required_col not in result_df.columns:
+# ────────── 데이터 존재 검사 ──────────
+req_col = f"{cur_year} 당월누적"
+if result_df.empty or req_col not in result_df.columns:
     st.info("선택한 조건에 해당하는 매출 데이터가 없습니다.")
     st.stop()
 
-# ────────────────── 합계 · 소계 · 상세 테이블 ──────────────────
+# ────────── 합계 · 소계 · 상세 테이블 ──────────
 totals = result_df.select_dtypes("number").sum()
 total_row = pd.Series({"division":"합계","site":"","brand":"",**totals})
 
@@ -114,7 +114,6 @@ div_sub = (result_df.groupby("division")
 
 final_tbl = pd.concat([total_row.to_frame().T, div_sub, result_df], ignore_index=True)
 
-# ────────────────── 스타일 & 표시 ──────────────────
 num_cols = final_tbl.select_dtypes("number").columns
 styled = (final_tbl.style
           .apply(lambda r: ["background-color:#ffe6e6"
@@ -126,19 +125,19 @@ styled = (final_tbl.style
 st.subheader(f"📋 {sel_month} 기준 누적 매출 전년비")
 st.markdown(styled.to_html(), unsafe_allow_html=True)
 
-# ────────────────── KPI 카드 ──────────────────
+# ────────── KPI ──────────
 sum_month_curr = totals[f"{cur_year} 당월누적"]
 sum_month_prev = totals[f"{prev_year} 당월누적"]
 sum_ytd_curr   = totals[f"{cur_year} YTD"]
 sum_ytd_prev   = totals[f"{prev_year} YTD"]
 
-c1, c2 = st.columns(2)
-c1.metric("전체 당월 누적", f"{sum_month_curr:,.0f} 원",
+k1, k2 = st.columns(2)
+k1.metric("전체 당월 누적", f"{sum_month_curr:,.0f} 원",
           f"{(sum_month_curr/sum_month_prev-1)*100:+.1f}%" if sum_month_prev else "N/A")
-c2.metric("전체 YTD 누적",  f"{sum_ytd_curr:,.0f} 원",
+k2.metric("전체 YTD 누적",  f"{sum_ytd_curr:,.0f} 원",
           f"{(sum_ytd_curr/sum_ytd_prev-1)*100:+.1f}%" if sum_ytd_prev else "N/A")
 
-# ────────────────── 누적 추이 그래프 ──────────────────
+# ────────── 누적 추이 그래프 ──────────
 st.subheader("연간 누적 매출 추이 (전체 선택 기준)")
 agg = (df.groupby(["year","date"])["sales"].sum()
          .groupby(level=0).cumsum().reset_index())
