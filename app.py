@@ -1,108 +1,140 @@
-
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
 
-st.set_page_config(layout="wide", page_title="월별 매출 대시보드")
+# ────────────────────── 페이지 설정 ──────────────────────
+st.set_page_config(page_title="월별 매출 대시보드", layout="wide")
 
-###############################################################################
+# ────────────────────── 전처리 함수 ──────────────────────
 @st.cache_data
 def preprocess_daily(file) -> pd.DataFrame:
+    """엑셀 wide → long 변환 + ym(YYYY-MM) 컬럼 생성"""
     df = pd.read_excel(file, sheet_name="DATA")
+
+    # 불필요 컬럼 제거
     if "Unnamed: 0" in df.columns:
         df = df.drop(columns=["Unnamed: 0"])
+
+    # 컬럼 영문 표준화
     df = df.rename(columns={"구분": "division", "사이트": "site", "매장": "brand"})
+
+    # wide → long
     meta_cols = ["division", "site", "brand"]
-    df_long = df.melt(id_vars=meta_cols, var_name="date", value_name="sales").reset_index(drop=True)
-    df_long["sales"] = pd.to_numeric(df_long["sales"], errors="coerce")
-    df_long = df_long.dropna(subset=["sales"])
-    df_long["sales"] = df_long["sales"].astype(int)
-    df_long["date"] = pd.to_datetime(df_long["date"])
-    df_long["ym"]   = df_long["date"].dt.to_period("M").astype(str)
-    return df_long
+    df = df.melt(id_vars=meta_cols, var_name="date", value_name="sales").reset_index(drop=True)
 
-###############################################################################
+    # 타입/결측 처리
+    df["sales"] = pd.to_numeric(df["sales"], errors="coerce")
+    df = df.dropna(subset=["sales"])
+    df["sales"] = df["sales"].astype(int)
+
+    # 날짜 파생
+    df["date"] = pd.to_datetime(df["date"])
+    df["ym"]   = df["date"].dt.to_period("M").astype(str)
+
+    return df
+
+# ────────────────────── 월별 가로 테이블 ──────────────────────
 def monthly_wide_table(df: pd.DataFrame, months: list[str] | None = None) -> pd.DataFrame:
+    """division·site 행 + 월별 열 구조의 가로 테이블 생성 (합계·소계 포함)"""
     monthly = df.groupby(["division", "site", "ym"])["sales"].sum().reset_index()
-    pivoted = monthly.pivot(index=["division", "site"], columns="ym", values="sales").fillna(0).astype(int)
 
+    # 월 열로 피벗
+    pivoted = (
+        monthly.pivot(index=["division", "site"], columns="ym", values="sales")
+               .fillna(0)
+               .astype(int)
+    )
+
+    # 전체 합계 행
     total_row = pd.DataFrame(pivoted.sum(axis=0)).T
-    total_row.index = pd.MultiIndex.from_tuples([("합계", "")], names=["division","site"])
+    total_row.index = pd.MultiIndex.from_tuples([("합계", "")], names=["division", "site"])
 
+    # 구분(division) 소계
     div_tot = (
         pivoted.reset_index()
                .groupby("division")
                .sum()
                .assign(site="")
     )
-    div_tot = div_tot.set_index(pd.MultiIndex.from_product([div_tot.index, [""]], names=["division","site"]))
+    div_tot = div_tot.set_index(
+        pd.MultiIndex.from_product([div_tot.index, [""]], names=["division", "site"])
+    )
 
-    final = pd.concat([total_row, div_tot, pivoted]).reset_index()
+    # 병합
+    result = pd.concat([total_row, div_tot, pivoted]).reset_index()
 
+    # 월 컬럼 순서 & 필터
     if months:
-        month_cols = [m for m in months if m in final.columns]
-        final = final[["division", "site"] + month_cols]
+        month_cols = [m for m in months if m in result.columns]
+        result = result[["division", "site"] + month_cols]
 
-    return final
+    return result
 
-###############################################################################
+# ────────────────────── 테이블 스타일 ──────────────────────
 def style_table(df: pd.DataFrame) -> pd.io.formats.style.Styler:
     return (
         df.style
-          .apply(lambda r: ["background-color: #ffe6e6"
-                            if ("합계" in str(r["division"]) or "소계" in str(r["division"]))
-                            else "" for _ in r], axis=1)
+          .apply(
+              lambda r: [
+                  "background-color: #ffe6e6"
+                  if ("합계" in str(r["division"]) or "소계" in str(r["division"]))
+                  else ""
+                  for _ in r
+              ],
+              axis=1,
+          )
           .format("{:,.0f}")
     )
 
-###############################################################################
-# SIDEBAR
-###############################################################################
+# ────────────────────── 사이드바 ──────────────────────
 st.sidebar.title("📁 데이터 업로드")
 uploaded_file = st.sidebar.file_uploader("일자별 매출 엑셀 업로드", type=["xlsx"])
 
-if not uploaded_file:
+# 파일이 없으면 안내 후 종료
+if uploaded_file is None:
     st.warning("엑셀 파일을 업로드하면 분석 결과가 나타납니다.")
     st.stop()
 
+# ────────────────────── 데이터 준비 ──────────────────────
 df = preprocess_daily(uploaded_file)
 
-# ⚠️ ym 컬럼 생성 이후에 사용해야 함
+# ym 컬럼 재확인(안전망)
+if "ym" not in df.columns:
+    df["ym"] = pd.to_datetime(df["date"]).dt.to_period("M").astype(str)
+
+# 월, 사이트, 브랜드 필터
 all_months = sorted(df["ym"].unique())
 selected_months = st.sidebar.multiselect("표시할 월 선택", all_months, default=all_months)
 
-# 필터
-sites  = st.sidebar.multiselect("사이트 선택", df["site"].unique(), default=list(df["site"].unique()))
+sites  = st.sidebar.multiselect("사이트 선택",  df["site"].unique(),   default=list(df["site"].unique()))
 brands = st.sidebar.multiselect("브랜드 선택", df["brand"].unique(), default=list(df["brand"].unique()))
-df = df[df["site"].isin(sites) & df["brand"].isin(brands)]
 
-###############################################################################
-# KPI
-###############################################################################
+df = df[df["site"].isin(sites) & df["brand"].isin(brands)]
+df_sel = df[df["ym"].isin(selected_months)]
+
+# ────────────────────── KPI ──────────────────────
 st.title("📊 월별 매출 대시보드")
 
-total_sales = df[df["ym"].isin(selected_months)]["sales"].sum()
-c1, c2 = st.columns(2)
-c1.metric("선택 월 총매출", f"{total_sales:,.0f} 원")
-c2.metric("선택 월 수", len(selected_months))
+total_sales = df_sel["sales"].sum()
+col1, col2 = st.columns(2)
+col1.metric("선택 월 총매출", f"{total_sales:,.0f} 원")
+col2.metric("선택 월 수", len(selected_months))
 
 st.markdown("---")
 
-###############################################################################
-# 테이블 + 꺾은선 그래프
-###############################################################################
-pivoted_df = monthly_wide_table(df[df["ym"].isin(selected_months)], selected_months)
-
+# ────────────────────── 월별 테이블 ──────────────────────
+pivot_tbl = monthly_wide_table(df_sel, selected_months)
 st.subheader("월별 매출 테이블")
-st.markdown(style_table(pivoted_df).to_html(), unsafe_allow_html=True)
+st.markdown(style_table(pivot_tbl).to_html(), unsafe_allow_html=True)
 
+# ────────────────────── 꺾은선 그래프 ──────────────────────
 st.subheader("선택 월 매출 추이 (합계)")
 line_df = (
-    df[df["ym"].isin(selected_months)]
-      .groupby("ym")["sales"].sum()
-      .reindex(selected_months)
-      .reset_index()
+    df_sel.groupby("ym")["sales"]
+          .sum()
+          .reindex(selected_months)  # 선택 월 순서 유지
+          .reset_index()
 )
 fig = px.line(line_df, x="ym", y="sales", markers=True, title="월별 총매출 꺾은선 그래프")
 fig.update_layout(xaxis_title="월", yaxis_title="매출", yaxis_tickformat=",.0f")
