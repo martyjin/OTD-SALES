@@ -1,16 +1,15 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import numpy as np
+import plotly.express as px
 
-st.set_page_config(layout="wide", page_title="매출 분석 대시보드")
+st.set_page_config(layout="wide", page_title="월별 매출 대시보드")
 
 ###############################################################################
-#                               데이터 전처리 함수                             #
+# 데이터 전처리
 ###############################################################################
 @st.cache_data
 def preprocess_daily(file) -> pd.DataFrame:
-    """엑셀 Wide → Long 변환 + 파생컬럼."""
     df = pd.read_excel(file, sheet_name="DATA")
     if "Unnamed: 0" in df.columns:
         df = df.drop(columns=["Unnamed: 0"])
@@ -21,99 +20,56 @@ def preprocess_daily(file) -> pd.DataFrame:
     df_long = df_long.dropna(subset=["sales"])
     df_long["sales"] = df_long["sales"].astype(int)
     df_long["date"] = pd.to_datetime(df_long["date"])
-    df_long["year"] = df_long["date"].dt.year
-    df_long["month"] = df_long["date"].dt.to_period("M").astype(str)
+    df_long["ym"]   = df_long["date"].dt.to_period("M").astype(str)
     return df_long
 
 ###############################################################################
-#                 월별 매출 및 전년비(구분/사이트 소계 포함) 계산               #
+# 월별 가로 테이블
 ###############################################################################
-def monthly_yoy_table(df: pd.DataFrame) -> pd.DataFrame:
-    """최종년도 월별 매출 + 전년비, 구분/사이트 소계 포함"""
-    latest_year = df["year"].max()
-    prev_year   = latest_year - 1
-
-    use = df[df["year"].isin([prev_year, latest_year])]
-    grp = (
-        use.groupby(["division", "site", "year", "month"])["sales"]
-           .sum()
-           .reset_index()
+def monthly_wide_table(df: pd.DataFrame, months: list[str] | None = None) -> pd.DataFrame:
+    monthly = df.groupby(["division", "site", "ym"])["sales"].sum().reset_index()
+    pivoted = (
+        monthly.pivot(index=["division", "site"], columns="ym", values="sales")
+               .fillna(0)
+               .astype(int)
     )
 
-    piv = grp.pivot_table(
-        index=["division", "site", "month"],
-        columns="year",
-        values="sales",
-        aggfunc="sum",
-        fill_value=0,
-    )
+    # 합계
+    total_row = pd.DataFrame(pivoted.sum(axis=0)).T
+    total_row.index = pd.MultiIndex.from_tuples([("합계", "")], names=["division","site"])
 
-    if latest_year not in piv.columns: piv[latest_year] = 0
-    if prev_year   not in piv.columns: piv[prev_year] = 0
-
-    piv["YoY(%)"] = np.where(
-        piv[prev_year] == 0,
-        np.nan,
-        (piv[latest_year] / piv[prev_year] - 1) * 100,
-    )
-
-    piv = piv.reset_index()
-    piv.columns = ["division", "site", "month",
-                   f"{prev_year} 매출", f"{latest_year} 매출", "YoY(%)"]
-
-    # ─ 구분 소계
+    # 구분 소계
     div_tot = (
-        piv.groupby(["division", "month"])[[f"{prev_year} 매출", f"{latest_year} 매출"]]
-           .sum()
-           .reset_index()
+        pivoted.reset_index()
+               .groupby("division")
+               .sum()
+               .assign(site="")
     )
-    div_tot["division"] += " 소계"
-    div_tot["site"] = ""
-    div_tot["YoY(%)"] = np.where(
-        div_tot[f"{prev_year} 매출"] == 0,
-        np.nan,
-        (div_tot[f"{latest_year} 매출"] / div_tot[f"{prev_year} 매출"] - 1) * 100,
-    )
+    div_tot = div_tot.set_index(pd.MultiIndex.from_product([div_tot.index, [""]], names=["division","site"]))
 
-    # ─ 전체 합계
-    all_tot = (
-        piv.groupby("month")[[f"{prev_year} 매출", f"{latest_year} 매출"]]
-           .sum()
-           .reset_index()
-    )
-    all_tot["division"] = "합계"
-    all_tot["site"] = ""
-    all_tot["YoY(%)"] = np.where(
-        all_tot[f"{prev_year} 매출"] == 0,
-        np.nan,
-        (all_tot[f"{latest_year} 매출"] / all_tot[f"{prev_year} 매출"] - 1) * 100,
-    )
+    final = pd.concat([total_row, div_tot, pivoted]).reset_index()
 
-    div_tot = div_tot[["division","site","month",
-                       f"{prev_year} 매출",f"{latest_year} 매출","YoY(%)"]]
-    all_tot = all_tot[["division","site","month",
-                       f"{prev_year} 매출",f"{latest_year} 매출","YoY(%)"]]
+    # 월 컬럼 순서 및 필터
+    if months:
+        month_cols = [m for m in months if m in final.columns]
+        final = final[["division", "site"] + month_cols]
 
-    final = pd.concat([all_tot, div_tot, piv], ignore_index=True)
     return final
 
 ###############################################################################
-#                           테이블 스타일 함수                                 #
+# 테이블 스타일
 ###############################################################################
-def style_sales_table(df: pd.DataFrame) -> pd.io.formats.style.Styler:
-    """합계·소계 행 배경색, 숫자 포맷"""
-    styler = (
+def style_table(df: pd.DataFrame) -> pd.io.formats.style.Styler:
+    return (
         df.style
           .apply(lambda r: ["background-color: #ffe6e6"
                             if ("합계" in str(r["division"]) or "소계" in str(r["division"]))
                             else "" for _ in r], axis=1)
-          .format({col: "{:,.0f}" for col in df.columns if "매출" in col})
-          .format({"YoY(%)": "{:+.1f}%"})
+          .format("{:,.0f}")
     )
-    return styler
 
 ###############################################################################
-#                              SIDEBAR                                         #
+# SIDEBAR
 ###############################################################################
 st.sidebar.title("📁 데이터 업로드")
 uploaded_file = st.sidebar.file_uploader("일자별 매출 엑셀 업로드", type=["xlsx"])
@@ -124,62 +80,40 @@ if not uploaded_file:
 
 df = preprocess_daily(uploaded_file)
 
-sites = st.sidebar.multiselect(
-    "사이트 선택", df["site"].unique(), default=list(df["site"].unique())
-)
-brands = st.sidebar.multiselect(
-    "브랜드 선택", df["brand"].unique(), default=list(df["brand"].unique())
-)
+sites  = st.sidebar.multiselect("사이트 선택", df["site"].unique(),   default=list(df["site"].unique()))
+brands = st.sidebar.multiselect("브랜드 선택", df["brand"].unique(), default=list(df["brand"].unique()))
 df = df[df["site"].isin(sites) & df["brand"].isin(brands)]
 
-###############################################################################
-#                             KPI                                              #
-###############################################################################
-latest_year = df["year"].max()
-prev_year   = latest_year - 1
-latest_sales = df[df["year"] == latest_year]["sales"].sum()
-prev_sales   = df[df["year"] == prev_year]["sales"].sum()
-yoy_total    = (latest_sales/prev_sales - 1) * 100 if prev_sales else np.nan
+all_months = sorted(df["ym"].unique())
+selected_months = st.sidebar.multiselect("표시할 월 선택", all_months, default=all_months)
 
-c1, c2, c3 = st.columns(3)
-c1.metric(f"{latest_year} 총 매출", f"{latest_sales:,.0f} 원")
-c2.metric(f"{prev_year} 대비", f"{yoy_total:+.1f}%")
-c3.metric("사이트 수", df["site"].nunique())
+###############################################################################
+# KPI
+###############################################################################
+st.title("📊 월별 매출 대시보드")
+
+total_sales = df[df["ym"].isin(selected_months)]["sales"].sum()
+c1, c2 = st.columns(2)
+c1.metric("선택 월 총매출", f"{total_sales:,.0f} 원")
+c2.metric("선택 월 수", len(selected_months))
 
 st.markdown("---")
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    ["📈 월별 매출 & 전년비", "🔍 인사이트", "📅 예측/시뮬레이션", "📂 Raw Data"]
+###############################################################################
+# 테이블 & 그래프
+###############################################################################
+pivoted_df = monthly_wide_table(df[df["ym"].isin(selected_months)], selected_months)
+
+st.subheader("월별 매출 테이블")
+st.markdown(style_table(pivoted_df).to_html(), unsafe_allow_html=True)
+
+st.subheader("선택 월 매출 추이 (합계)")
+line_df = (
+    df[df["ym"].isin(selected_months)]
+      .groupby("ym")["sales"].sum()
+      .reindex(selected_months)
+      .reset_index()
 )
-
-# ── Tab 1
-with tab1:
-    st.subheader(f"최종년도({latest_year}) 월별 매출 및 전년비")
-    monthly_tbl = monthly_yoy_table(df)
-    # HTML 스타일 테이블은 markdown으로 렌더링
-    st.markdown(
-        style_sales_table(monthly_tbl).to_html(),
-        unsafe_allow_html=True,
-    )
-
-# ── Tab 2
-with tab2:
-    st.subheader("요일별 평균 매출")
-    df["weekday"] = df["date"].dt.day_name()
-    order = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"]
-    weekday_avg = df.groupby("weekday")["sales"].mean().reindex(order).reset_index()
-    st.bar_chart(weekday_avg, x="weekday", y="sales")
-
-# ── Tab 3
-with tab3:
-    st.subheader("예측 및 시뮬레이션 (예정)")
-    st.info("Prophet 기반 예측, 비용·손익 시뮬레이터 기능이 이곳에 추가될 예정입니다.")
-
-# ── Tab 4
-with tab4:
-    st.subheader("Raw Data (상위 15행)")
-    st.dataframe(
-        df.head(15).style.format({"sales": "{:,.0f}"}),
-        use_container_width=True,
-        height=400,
-    )
+fig = px.line(line_df, x="ym", y="sales", markers=True, title="월별 총매출 꺾은선 그래프")
+fig.update_layout(xaxis_title="월", yaxis_title="매출", yaxis_tickformat=",.0f")
+st.plotly_chart(fig, use_container_width=True)
