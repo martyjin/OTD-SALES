@@ -1,14 +1,14 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from datetime import datetime
 
-# ────────────────── 페이지 설정 ──────────────────
-st.set_page_config(page_title="OTD 월별 매출 대시보드", layout="wide")
+# ────────── 페이지 설정 ──────────
+st.set_page_config(page_title="OTD 매출 전년비 대시보드", layout="wide")
 
-# ────────────────── 데이터 전처리 ──────────────────
+# ────────── 데이터 전처리 ──────────
 @st.cache_data
-def preprocess_daily(file) -> pd.DataFrame:
-    """wide → long 변환 + ym(YYYY-MM) 컬럼 생성"""
+def preprocess(file) -> pd.DataFrame:
     df = pd.read_excel(file, sheet_name="DATA")
     if "Unnamed: 0" in df.columns:
         df.drop(columns=["Unnamed: 0"], inplace=True)
@@ -16,7 +16,6 @@ def preprocess_daily(file) -> pd.DataFrame:
     df.rename(columns={"구분": "division", "사이트": "site",
                        "매장": "brand", "일자": "date",
                        "매출": "sales"}, inplace=True)
-
     meta = ["division", "site", "brand"]
     df = df.melt(id_vars=meta, var_name="date", value_name="sales")
 
@@ -26,44 +25,11 @@ def preprocess_daily(file) -> pd.DataFrame:
 
     df["date"] = pd.to_datetime(df["date"])
     df["ym"]   = df["date"].dt.to_period("M").astype(str)
+    df["year"] = df["date"].dt.year
+    df["month_num"] = df["date"].dt.month
     return df
 
-# ────────────────── 월별 가로 테이블 ──────────────────
-def monthly_wide_table(df: pd.DataFrame, months: list[str]) -> pd.DataFrame:
-    monthly = df.groupby(["division", "site", "ym"])["sales"].sum().reset_index()
-
-    pivoted = (
-        monthly.pivot(index=["division", "site"], columns="ym", values="sales")
-               .fillna(0).astype(int)
-    )
-
-    total = pd.DataFrame(pivoted.sum(axis=0)).T
-    total.index = pd.MultiIndex.from_tuples([("합계", "")], names=["division", "site"])
-
-    div_tot = pivoted.groupby(level="division").sum()
-    div_tot.index = pd.MultiIndex.from_product(
-        [div_tot.index, [""]], names=["division", "site"]
-    )
-
-    combined = pd.concat([total, div_tot, pivoted])
-    combined = combined.reset_index()
-
-    month_cols = [m for m in months if m in combined.columns]
-    return combined[["division", "site"] + month_cols]
-
-# ────────────────── 테이블 스타일 (숫자 컬럼만 포맷) ──────────────────
-def style_table(df: pd.DataFrame) -> pd.io.formats.style.Styler:
-    numeric_cols = df.select_dtypes("number").columns
-    sty = (
-        df.style
-          .apply(lambda r: ["background-color:#ffe6e6"
-                            if ("합계" in str(r["division"]) or "소계" in str(r["division"]))
-                            else "" for _ in r], axis=1)
-          .format({col: "{:,.0f}" for col in numeric_cols})
-    )
-    return sty
-
-# ────────────────── 파일 업로드 (사이드바) ──────────────────
+# ────────── 파일 업로드 ──────────
 st.sidebar.header("📂 데이터 업로드")
 uploaded = st.sidebar.file_uploader("일자별 매출 엑셀", type=["xlsx"])
 
@@ -71,48 +37,73 @@ if uploaded is None:
     st.warning("먼저 엑셀 파일을 업로드해 주세요.")
     st.stop()
 
-df_raw = preprocess_daily(uploaded)
+df_raw = preprocess(uploaded)
 
-# ────────────────── 메인: 필터 UI ──────────────────
-st.title("📊 월별 매출 대시보드")
+# ────────── 필터 (메인 화면) ──────────
+st.title("📊 전년비 누적 매출 대시보드")
 
 with st.expander("🔎 필터", expanded=True):
     col_m, col_s, col_b = st.columns(3)
-
     all_months = sorted(df_raw["ym"].unique())
     all_sites  = sorted(df_raw["site"].unique())
     all_brands = sorted(df_raw["brand"].unique())
 
-    sel_months = col_m.multiselect("월 선택", all_months, default=all_months)
-    sel_sites  = col_s.multiselect("사이트 선택", all_sites, default=all_sites)
-    sel_brands = col_b.multiselect("브랜드 선택", all_brands, default=all_brands)
+    sel_month = col_m.selectbox("기준 월 선택 (당월)", all_months[-1::-1])  # 최신월 기본
+    sel_sites = col_s.multiselect("사이트",  all_sites,  default=all_sites)
+    sel_brands= col_b.multiselect("브랜드", all_brands, default=all_brands)
 
+# 필터 적용
 df = df_raw[
-    df_raw["ym"].isin(sel_months) &
-    df_raw["site"].isin(sel_sites) &
-    df_raw["brand"].isin(sel_brands)
+    (df_raw["site"].isin(sel_sites)) &
+    (df_raw["brand"].isin(sel_brands))
 ]
 
-# ────────────────── KPI ──────────────────
-total_sales = df["sales"].sum()
-kpi_cols = st.columns(2)
-kpi_cols[0].metric("선택 월 총매출", f"{total_sales:,.0f} 원")
-kpi_cols[1].metric("선택 월 수", len(sel_months))
+# ────────── 기준 연도 및 전년 계산 ──────────
+cur_year  = int(sel_month.split("-")[0])
+prev_year = cur_year - 1
+cur_month_num = int(sel_month.split("-")[1])
 
-st.divider()
+# 당월 누적 (선택 월의 1일~말일) -------------------------
+month_curr = df[(df["year"] == cur_year)  & (df["ym"] == sel_month)]["sales"].sum()
+month_prev = df[(df["year"] == prev_year) & (df["ym"] == f"{prev_year}-{sel_month[-2:]}")]["sales"].sum()
+month_yoy  = None if month_prev == 0 else (month_curr / month_prev - 1) * 100
 
-# ────────────────── 월별 매출 테이블 ──────────────────
-st.subheader("📆 월별 매출 테이블")
-wide_tbl = monthly_wide_table(df, sel_months)
-st.markdown(style_table(wide_tbl).to_html(), unsafe_allow_html=True)
+# 연간 누적 (해당 월까지) -------------------------------
+ytd_curr = df[(df["year"] == cur_year) &
+              (df["month_num"] <= cur_month_num)]["sales"].sum()
+ytd_prev = df[(df["year"] == prev_year) &
+              (df["month_num"] <= cur_month_num)]["sales"].sum()
+ytd_yoy  = None if ytd_prev == 0 else (ytd_curr / ytd_prev - 1) * 100
 
-# ────────────────── 꺾은선 그래프 ──────────────────
-st.subheader("📈 매출 추이")
+# ────────── KPI & 표 출력 ──────────
+st.subheader(f"📈 {sel_month} 기준 누적 매출 전년비")
+k1,k2 = st.columns(2)
+k1.metric("당월 누적 매출", f"{month_curr:,.0f} 원",
+          f"{month_yoy:+.1f}%" if month_yoy is not None else "N/A")
+k2.metric("연간 누적 매출", f"{ytd_curr:,.0f} 원",
+          f"{ytd_yoy:+.1f}%" if ytd_yoy is not None else "N/A")
+
+# 표 요약
+summary_df = pd.DataFrame({
+    "구분": ["당월 누적", "연간 누적"],
+    f"{cur_year} 매출": [month_curr, ytd_curr],
+    f"{prev_year} 매출": [month_prev, ytd_prev],
+    "전년비(%)": [month_yoy, ytd_yoy]
+})
+st.table(summary_df.style.format({f"{cur_year} 매출":"{:,.0f}",
+                                  f"{prev_year} 매출":"{:,.0f}",
+                                  "전년비(%)":"{:+.1f}%"}))
+
+# ────────── 추이 그래프 (선택) ──────────
+st.subheader("월별 누적 매출 추이")
 line_df = (
-    df.groupby("ym")["sales"].sum()
-      .reindex(sel_months).reset_index()
+    df[df["year"].isin([prev_year, cur_year])]
+      .groupby(["year", "ym"])["sales"].sum()
+      .groupby(level=0).cumsum()        # 누적값
+      .reset_index()
 )
-fig = px.line(line_df, x="ym", y="sales", markers=True,
-              title="선택 월 매출 추이", labels={"ym": "월", "sales": "매출"})
+fig = px.line(line_df, x="ym", y="sales", color="year",
+              markers=True, labels={"ym":"월", "sales":"누적 매출", "year":"연도"},
+              title="연간 누적 매출 추이")
 fig.update_layout(yaxis_tickformat=",.0f")
 st.plotly_chart(fig, use_container_width=True)
